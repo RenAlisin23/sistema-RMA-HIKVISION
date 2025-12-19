@@ -117,14 +117,14 @@ except:
 if not df.empty:
     c_m1, c_m2, c_m3 = st.columns(3)
     c_m1.metric("TOTAL", len(df))
-    c_m2.metric("EN TALLER", len(df[df['informacion'] == 'En proceso']))
+    c_m2.metric("EN HQ", len(df[df['informacion'] == 'En proceso']))
     c_m3.metric("LISTOS", len(df[df['informacion'] == 'FINALIZADO']))
 
     st.markdown("---")
 
     # 7. EDITOR POR ID AMIGABLE
-    st.markdown("### 🛠️ Editor Maestro")
-    with st.expander("📝 SELECCIONAR POR ID AMIGABLE PARA MODIFICAR"):
+    st.markdown("### 🛠️ Edición de nuevos casos ")
+    with st.expander("📝 Buscador de casos a actualizar"):
         # Mostramos una lista con el ID Amigable y el RMA
         opciones = [f"Nº {r['id_amigable']} | RMA: {r['rma_number']}" for _, r in df.iterrows()]
         sel_label = st.selectbox("Buscar por número correlativo:", ["---"] + opciones)
