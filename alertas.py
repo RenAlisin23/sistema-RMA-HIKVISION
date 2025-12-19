@@ -20,7 +20,7 @@ def enviar_alertas():
 
     supabase = create_client(URL, KEY)
     
-    # 2. OBTENER DESTINATARIOS (No importa si son Outlook, Gmail o Corporativos)
+    # 2. OBTENER DESTINATARIOS
     res_contactos = supabase.table("lista_contactos").select("email").execute()
     destinatarios = [c['email'] for c in res_contactos.data if c.get('email')]
     
@@ -46,9 +46,13 @@ def enviar_alertas():
         # Diseño de la tabla para el correo
         filas_html = ""
         for _, fila in vencidos.iterrows():
+            # Extraemos el ticket. Si no existe la columna o está vacía, pone "N/A"
+            ticket_info = fila.get('ticket', 'N/A')
+            
             filas_html += f"""
                 <tr>
                     <td style='padding:10px; border:1px solid #ddd;'>{fila['rma_number']}</td>
+                    <td style='padding:10px; border:1px solid #ddd; color:#0078d4; font-weight:bold;'>{ticket_info}</td>
                     <td style='padding:10px; border:1px solid #ddd;'>{fila['empresa']}</td>
                     <td style='padding:10px; border:1px solid #ddd; color:#d9534f;'><b>{fila['dias_en_taller']} días</b></td>
                 </tr>
@@ -58,7 +62,7 @@ def enviar_alertas():
         msg = MIMEMultipart()
         msg['From'] = f"Sistema Alertas RMA <{EMAIL_USER}>"
         msg['To'] = ", ".join(destinatarios)
-        msg['Subject'] = f"URGENTE: {len(vencidos)} RMAs excedieron los 30 días"
+        msg['Subject'] = f"🚨 URGENTE: {len(vencidos)} RMAs con Ticket excedieron los 30 días"
 
         html_final = f"""
         <html>
@@ -68,13 +72,14 @@ def enviar_alertas():
                 <table style='width:100%; border-collapse: collapse;'>
                     <tr style='background-color: #f8f9fa;'>
                         <th style='padding:10px; border:1px solid #ddd;'>Número RMA</th>
+                        <th style='padding:10px; border:1px solid #ddd;'>Ticket</th>
                         <th style='padding:10px; border:1px solid #ddd;'>Empresa</th>
                         <th style='padding:10px; border:1px solid #ddd;'>Días transcurridos</th>
                     </tr>
                     {filas_html}
                 </table>
                 <p style='margin-top:20px; font-size: 12px; color: #777;'>
-                    Este es un correo automático generado por el sistema de inventario.
+                    Este es un correo automático generado por el sistema de inventario para Hikvision.
                 </p>
             </body>
         </html>
@@ -83,13 +88,12 @@ def enviar_alertas():
 
         # 6. ENVÍO 
         try:
-            # Usamos el puerto 465 (SSL) 
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                 server.login(EMAIL_USER, EMAIL_PASS)
                 server.sendmail(EMAIL_USER, destinatarios, msg.as_string())
-            print(f"Alertas enviadas correctamente a {len(destinatarios)} destinatarios.")
+            print(f"✅ Alertas con Ticket enviadas correctamente a {len(destinatarios)} destinatarios.")
         except Exception as e:
-            print(f"❌ Error al conectar con Gmail: {e}")
+            print(f"❌ Error al enviar con Gmail: {e}")
 
 if __name__ == "__main__":
     enviar_alertas()
