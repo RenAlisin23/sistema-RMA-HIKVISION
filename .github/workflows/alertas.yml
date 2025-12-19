@@ -25,6 +25,6 @@ jobs:
         env:
           SUPABASE_URL: "https://kqlpfeljrwtifdfvsdqi.supabase.co"
           SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbHBmZWxqcnd0aWZkZnZzZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwODM0MzEsImV4cCI6MjA4MTY1OTQzMX0.qstkKLjGhkOiMgQgyzsgjA27kOgLH_fPbQCAJpWkcxA"
-          OUTLOOK_USER: "Renzo.Aliaga@hikvision.com"
-          OUTLOOK_PASS: "F63VVMaug" 
+          GMAIL_USER: "renzo.aliaga.18@gmail.com" 
+          GMAIL_PASS: "foqs hner haae xsvo"   
         run: python alertas.py
