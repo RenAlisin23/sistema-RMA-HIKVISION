@@ -5,41 +5,30 @@ import pandas as pd
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="RMA Hikvision Control", layout="wide", page_icon="📦")
 
-# 2. DISEÑO CSS PARA BLINDAR LA APP (OCULTA MANAGE APP, TOOLBAR Y DECORACIÓN)
+# 2. DISEÑO CSS PARA BLINDAR LA APP
 st.markdown("""
     <style>
-    /* OCULTAR TODOS LOS ELEMENTOS DE DESARROLLO Y GESTIÓN */
     header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    
-    /* ELIMINAR EL BOTÓN 'MANAGE APP' Y 'DEPLOY' */
-    button[title="View source on GitHub"] { display: none !important; }
-    .stDeployButton { display: none !important; }
-    #stManageAppButton { display: none !important; }
     [data-testid="stManageAppButton"] { display: none !important; }
+    .stDeployButton { display: none !important; }
 
-    /* ESTILO DARK INDUSTRIAL */
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     h1, h2, h3, p, label { color: #e6edf3 !important; font-family: 'Inter', sans-serif; }
     
-    /* BARRA LATERAL */
     [data-testid="stSidebar"] { background-color: #010409; border-right: 2px solid #eb1c24; }
     
-    /* TARJETAS DE MÉTRICAS */
     [data-testid="stMetric"] {
         background-color: #161b22;
         padding: 20px;
         border-radius: 15px;
         border: 1px solid #30363d;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
     }
-    [data-testid="stMetricValue"] { color: #58a6ff !important; }
 
-    /* BOTONES ROJO SANGRE */
     .stButton>button {
         background: #8b0000;
         color: white !important;
@@ -51,16 +40,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. SISTEMA DE LOGIN INTEGRADO
+# 3. SISTEMA DE LOGIN
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
 def pantalla_login():
-    c1, c2, c3 = st.columns([1,2,1])
-    with col2 := c2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
         st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=350)
-        st.markdown("## 🔐 Acceso Restringido")
+        st.markdown("## Acceso Restringido")
         with st.form("login"):
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
@@ -111,11 +101,13 @@ with st.sidebar:
 st.markdown("# 📦 Panel de Control RMA")
 
 # Carga de datos
-res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+try:
+    res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
+    df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+except:
+    df = pd.DataFrame()
 
 if not df.empty:
-    # Métricas
     c_m1, c_m2, c_m3 = st.columns(3)
     c_m1.metric("TOTAL", len(df))
     c_m2.metric("EN TALLER", len(df[df['informacion'] == 'En proceso']))
@@ -123,10 +115,9 @@ if not df.empty:
 
     st.markdown("---")
 
-    # 7. EDITOR POR ID (BUSCAR Y ACTUALIZAR)
+    # 7. EDITOR POR ID
     st.markdown("### 🛠️ Editor Maestro")
     with st.expander("📝 SELECCIONAR REGISTRO POR ID PARA MODIFICAR"):
-        # Lista desplegable con ID y RMA
         opciones = ["ID: " + str(r['id']) + " | RMA: " + str(r['rma_number']) for r in res.data]
         sel_label = st.selectbox("Buscar registro:", ["---"] + opciones)
         
@@ -149,12 +140,12 @@ if not df.empty:
                     upd_data = {"informacion": n_est, "enviado": n_env, 
                                 "comentarios": n_com, "fedex_number": n_fedex}
                     supabase.table("inventario_rma").update(upd_data).eq("id", id_selecionado).execute()
-                    st.success("✅ Registro actualizado")
+                    st.success("✅ Actualizado")
                     st.rerun()
 
     st.markdown("---")
 
-    # 8. VISUALIZACIÓN
+    # 8. TABLA
     busq = st.text_input("🔍 Filtrar tabla...", placeholder="RMA, Empresa o S/N")
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
@@ -168,4 +159,4 @@ if not df.empty:
         column_config={"id": "ID", "fedex_number": "📦 FedEx", "informacion": "Estado"}
     )
 else:
-    st.info("Sin datos para mostrar.")
+    st.info("Sin datos.")
