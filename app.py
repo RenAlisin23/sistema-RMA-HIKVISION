@@ -60,8 +60,7 @@ st.subheader("🔍 Buscador de Equipos")
 busqueda = st.text_input("Buscar por Empresa, RMA o Serial Number...", placeholder="Ejemplo: DNT o RB_PE...")
 
 # Obtener datos de Supabase
-res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-
+res = supabase.table("inventario_rma").select("*").execute()
 if res.data:
     df = pd.DataFrame(res.data)
     
