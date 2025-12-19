@@ -123,7 +123,7 @@ with st.sidebar:
                 st.rerun()
 
 # --- PANEL PRINCIPAL ---
-st.title("🛡️ RMA Control Center")
+st.title("HIK-RMA Control Center")
 
 # 4. CARGA DE DATOS
 try:
@@ -155,7 +155,7 @@ if not df.empty:
     else:
         df_mostrar = df
 
-    # Colores para la tabla (Tonos oscuros)
+    # Colores para la tabla 
     def highlight_status(val):
         if val == 'FINALIZADO':
             return 'background-color: #062612; color: #34ee71; font-weight: bold;'
