@@ -3,7 +3,7 @@ from supabase import create_client
 import pandas as pd
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="RMA Hikvision | Pro Dashboard", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="RMA Hikvision | Dark Mode", layout="wide", page_icon="🛡️")
 
 # 2. CONEXIÓN A BASE DE DATOS
 @st.cache_resource
@@ -11,100 +11,93 @@ def init_connection():
     try:
         return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     except:
-        st.error("⚠️ Error de conexión. Revisa los Secrets en Streamlit Cloud.")
+        st.error("⚠️ Error de conexión.")
         return None
 
 supabase = init_connection()
-# 3. DISEÑO 
+
+# 3. DISEÑO "FULL DARK & INDUSTRIAL" (Cero Blanco)
 st.markdown("""
     <style>
-    /* Fondo principal: Gris humo ultra suave */
-    .stApp { background-color: #f8faff; }
-    
-    /* Títulos: Degradado elegante */
-    h1 { 
-        color: #0e1117 !important; 
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        letter-spacing: -1px;
+    /* Fondo General: Negro Azulado Profundo */
+    .stApp { 
+        background-color: #0d1117; 
+        color: #c9d1d9;
     }
     
-    /* Barra lateral: Azul Medianoche Hikvision */
+    /* Títulos: Gris Platino */
+    h1, h2, h3, p { 
+        color: #e6edf3 !important; 
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Barra lateral: Negro Puro */
     [data-testid="stSidebar"] { 
-        background-color: #0a0e1a; 
-        border-right: 4px solid #eb1c24; 
+        background-color: #010409; 
+        border-right: 2px solid #eb1c24; 
     }
     
-    /* Inputs de la barra lateral: Oscuros con borde rojo al enfocar */
+    /* Campos de texto en Sidebar: Gris Oscuro */
     [data-testid="stSidebar"] .stTextInput input, 
     [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"],
     [data-testid="stSidebar"] .stTextArea textarea {
-        background-color: #161b22 !important;
-        color: #e6edf3 !important;
+        background-color: #0d1117 !important;
+        color: #58a6ff !important;
         border: 1px solid #30363d !important;
-        border-radius: 8px;
     }
 
-    /* Tarjetas de métricas: Estilo Glassmorphism ligero */
+    /* Tarjetas de métricas: Gris Metálico (Cero Blanco) */
     [data-testid="stMetric"] {
-        background-color: #ffffff;
-        padding: 25px;
-        border-radius: 20px;
-        box-shadow: 0px 10px 25px rgba(0,0,0,0.05);
-        border: 1px solid #edf2f7;
+        background-color: #161b22;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
+        border: 1px solid #30363d;
     }
     
-    /* Etiquetas de métricas: Color acero */
-    [data-testid="stMetricLabel"] { 
-        color: #64748b !important; 
-        font-weight: 600 !important;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-    }
-    
-    /* Valores de métricas: Negro intenso */
-    [data-testid="stMetricValue"] { 
-        color: #0f172a !important; 
-        font-weight: 800 !important;
-    }
+    /* Textos de Métricas */
+    [data-testid="stMetricLabel"] { color: #8b949e !important; }
+    [data-testid="stMetricValue"] { color: #58a6ff !important; }
 
-    /* Buscador: Bordes redondeados y sombra suave */
+    /* Buscador Principal: Gris Carbono */
     .stTextInput input {
-        border-radius: 12px !important;
-        border: 2px solid #e2e8f0 !important;
-        padding: 12px !important;
+        background-color: #161b22 !important;
+        color: #f0f6fc !important;
+        border: 1px solid #30363d !important;
+        border-radius: 10px !important;
     }
 
-    /* Botón: Efecto Neón Rojo */
+    /* Botón: Rojo Sangre con Sombra */
     .stButton>button {
-        background: linear-gradient(135deg, #eb1c24 0%, #b0141a 100%);
-        color: white !important;
-        border-radius: 12px !important;
-        border: none !important;
-        padding: 0.6rem 1rem !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 15px rgba(235, 28, 36, 0.3);
-        transition: all 0.3s ease;
+        background: #8b0000;
+        color: #f0f6fc !important;
+        border-radius: 8px !important;
+        border: 1px solid #eb1c24 !important;
+        font-weight: bold !important;
+        box-shadow: 0 0 10px rgba(235, 28, 36, 0.2);
     }
     
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(235, 28, 36, 0.5);
-        color: #ffffff !important;
+        background: #eb1c24;
+        box-shadow: 0 0 20px rgba(235, 28, 36, 0.4);
     }
 
-    /* Tabla: Limpieza total */
+    /* Tabla: Fondo Oscuro y Texto Claro */
     .stDataFrame {
-        border-radius: 15px !important;
-        overflow: hidden !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        background-color: #0d1117 !important;
+        border: 1px solid #30363d !important;
     }
+    
+    /* Estilo de líneas divisorias */
+    hr { border: 0.1px solid #30363d !important; }
+
     </style>
     """, unsafe_allow_html=True)
 
-# --- BARRA LATERAL: REGISTRO DE EQUIPOS ---
+# --- BARRA LATERAL: REGISTRO ---
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=180)
-    st.markdown("## ➕ Nuevo Ingreso")
+    st.markdown("## ➕ Registro de Equipo")
     
     with st.form("form_registro", clear_on_submit=True):
         rma = st.text_input("RMA Number")
@@ -114,9 +107,9 @@ with st.sidebar:
         modelo = st.text_input("Modelo")
         sn = st.text_input("Serial Number")
         info = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
-        coments = st.text_area("Comentarios del Técnico", height=120)
+        coments = st.text_area("Comentarios del Técnico", height=100)
         
-        btn = st.form_submit_button("GUARDAR EQUIPO")
+        btn = st.form_submit_button("GUARDAR EN NUBE")
         
         if btn:
             if rma and empresa:
@@ -126,17 +119,14 @@ with st.sidebar:
                     "informacion": info, "comentarios": coments, "enviado": "NO"
                 }
                 supabase.table("inventario_rma").insert(nuevo).execute()
-                st.success("✅ ¡Registrado correctamente!")
+                st.success("✅ Datos sincronizados")
                 st.rerun()
-            else:
-                st.error("RMA y Empresa son obligatorios")
 
 # --- PANEL PRINCIPAL ---
-st.title("Sistema de Control RMA Hikvision")
+st.title("🛡️ RMA Control Center")
 
 # 4. CARGA DE DATOS
 try:
-    # Intento con orden, si falla trae todo
     try:
         res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
     except:
@@ -145,34 +135,32 @@ try:
 except:
     df = pd.DataFrame()
 
-# Muestra métricas si hay datos
+# Métricas (Tarjetas Gris Carbono)
 if not df.empty:
     m1, m2, m3 = st.columns(3)
-    m1.metric("Equipos Totales", len(df))
-    m2.metric("A espera por HQ", len(df[df['informacion'] == 'En proceso']))
-    m3.metric("Finalizados", len(df[df['informacion'] == 'FINALIZADO']))
+    m1.metric("TOTAL REGISTROS", len(df))
+    m2.metric("PENDIENTES HQ", len(df[df['informacion'] == 'En proceso']))
+    m3.metric("LISTOS / OK", len(df[df['informacion'] == 'FINALIZADO']))
 
 st.markdown("---")
 
 # 5. BUSCADOR Y TABLA
-st.markdown("Buscador de eventos")
-busqueda = st.text_input("", placeholder="Busca por RMA, Empresa, Serial o comentario...")
+st.markdown("🔍 **FILTRO DINÁMICO DE EVENTOS**")
+busqueda = st.text_input("", placeholder="Escribe para filtrar RMA, Empresa o S/N...")
 
 if not df.empty:
-    # Filtro global en todas las columnas
     if busqueda:
         mask = df.apply(lambda row: row.astype(str).str.contains(busqueda, case=False).any(), axis=1)
         df_mostrar = df[mask]
     else:
         df_mostrar = df
 
-    # Estilo de colores para la columna Estado
+    # Colores para la tabla (Tonos oscuros)
     def highlight_status(val):
-        color = '#155724' if val == 'FINALIZADO' else '#856404'
-        bg = '#d4edda' if val == 'FINALIZADO' else '#fff3cd'
-        return f'background-color: {bg}; color: {color}; font-weight: bold;'
+        if val == 'FINALIZADO':
+            return 'background-color: #062612; color: #34ee71; font-weight: bold;'
+        return 'background-color: #2b2106; color: #eec234;'
 
-    # Configuración de columnas
     columnas_ver = ["rma_number", "empresa", "modelo", "serial_number", "informacion", "comentarios", "fecha_registro"]
     
     st.dataframe(
@@ -180,10 +168,10 @@ if not df.empty:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "rma_number": "Ticket RMA",
-            "informacion": "Estado Actual",
-            "comentarios": st.column_config.TextColumn("Comentarios Detallados", width="large"),
-            "fecha_registro": st.column_config.DatetimeColumn("Fecha de Entrada", format="DD/MM/YYYY HH:mm")
+            "rma_number": "RMA",
+            "informacion": "Estado",
+            "comentarios": st.column_config.TextColumn("Notas Técnicas", width="large"),
+            "fecha_registro": st.column_config.DatetimeColumn("Fecha Entrada", format="DD/MM/YY HH:mm")
         }
     )
 else:
