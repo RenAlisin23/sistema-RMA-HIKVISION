@@ -84,7 +84,7 @@ with st.sidebar:
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
-        f_desc = st.text_area("Descripción (Falla/Estado)")
+        f_desc = st.text_area("Ingrese partes del modelo aplicadas")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
         f_com = st.text_area("Comentarios")
         
@@ -177,11 +177,12 @@ if not df.empty:
         return 'background-color: #2b2106; color: #eec234;'
 
     st.dataframe(
-        df_f[["id_amigable", "rma_number", "n_ticket", "empresa", "modelo", "descripcion", "informacion", "fedex_number"]].style.applymap(color_est, subset=['informacion']),
+        df_f[["id_amigable", "rma_number","n_rq","n_ticket", "empresa", "modelo", "descripcion", "informacion", "fedex_number"]].style.applymap(color_est, subset=['informacion']),
         use_container_width=True, hide_index=True,
         column_config={
             "id_amigable": "Nº", 
             "rma_number": "RMA",
+            "n_rq": "Número de RQ",
             "n_ticket": "Ticket",
             "fedex_number": "📦 FedEx", 
             "informacion": "Estado",
