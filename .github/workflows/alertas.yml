@@ -3,7 +3,7 @@ name: Enviar Alertas RMA Cada 2 Dias
 on:
   schedule:
     - cron: '0 13 */2 * *'
-  workflow_dispatch: # Esto te deja probarlo manualmente con un botón
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -23,7 +23,8 @@ jobs:
 
       - name: Ejecutar script de alertas
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # IMPORTANTE
+          SUPABASE_URL: "https://kqlpfeljrwtifdfvsdqi.supabase.co"
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+          RESEND_API_KEY: "re_CUHjJSmw_..."
         run: python alertas.py
