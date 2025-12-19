@@ -47,7 +47,7 @@ def enviar_alertas():
         filas_html = ""
         for _, fila in vencidos.iterrows():
             # Extraemos el ticket. Si no existe la columna o está vacía, pone "N/A"
-            ticket_info = fila.get('ticket', 'N/A')
+            ticket_info = fila.get('n_ticket', 'N/A')
             
             filas_html += f"""
                 <tr>
@@ -62,7 +62,7 @@ def enviar_alertas():
         msg = MIMEMultipart()
         msg['From'] = f"Sistema Alertas RMA <{EMAIL_USER}>"
         msg['To'] = ", ".join(destinatarios)
-        msg['Subject'] = f"🚨 URGENTE: {len(vencidos)} RMAs con Ticket excedieron los 30 días"
+        msg['Subject'] = f"URGENTE: {len(vencidos)} RMAs con Ticket excedieron los 30 días"
 
         html_final = f"""
         <html>
@@ -91,7 +91,7 @@ def enviar_alertas():
             with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
                 server.login(EMAIL_USER, EMAIL_PASS)
                 server.sendmail(EMAIL_USER, destinatarios, msg.as_string())
-            print(f"✅ Alertas con Ticket enviadas correctamente a {len(destinatarios)} destinatarios.")
+            print(f"Alertas con Ticket enviadas correctamente a {len(destinatarios)} destinatarios.")
         except Exception as e:
             print(f"❌ Error al enviar con Gmail: {e}")
 
