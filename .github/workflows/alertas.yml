@@ -23,8 +23,7 @@ jobs:
 
       - name: Ejecutar script de alertas
         env:
-          # IMPORTANTE
           SUPABASE_URL: "https://kqlpfeljrwtifdfvsdqi.supabase.co"
-          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
-          RESEND_API_KEY: "re_CUHjJSmw_..."
+          SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbHBmZWxqcnd0aWZkZnZzZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwODM0MzEsImV4cCI6MjA4MTY1OTQzMX0.qstkKLjGhkOiMgQgyzsgjA27kOgLH_fPbQCAJpWkcxA"
+          RESEND_API_KEY: "re_CUHjJSmw_7zmGWfgMUSU475HPeLBwiwFF"
         run: python alertas.py
