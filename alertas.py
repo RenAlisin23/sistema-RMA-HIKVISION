@@ -4,7 +4,7 @@ from supabase import create_client
 import resend
 import os
 
-# Configuración de conexión (Usaremos variables seguras)
+# Configuración (GitHub Actions llenará esto solo)
 URL = os.environ.get("SUPABASE_URL")
 KEY = os.environ.get("SUPABASE_KEY")
 resend.api_key = os.environ.get("RESEND_API_KEY")
@@ -12,31 +12,29 @@ resend.api_key = os.environ.get("RESEND_API_KEY")
 def enviar_alertas():
     supabase = create_client(URL, KEY)
     
-    # 1. Obtener correos de la tabla lista_contactos
+    # 1. Obtener destinatarios
     res_contactos = supabase.table("lista_contactos").select("email").execute()
     destinatarios = [c['email'] for c in res_contactos.data]
     
     if not destinatarios:
-        print("No hay destinatarios configurados.")
+        print("Error: No hay destinatarios en 'lista_contactos'.")
         return
 
-    # 2. Obtener equipos que NO han sido enviados 
+    # 2. Obtener equipos donde enviado sea distinto a 'YES'
+    # Esto asegura que si está vacío, 'NO' o cualquier cosa distinta a 'YES', se incluya.
     res_rma = supabase.table("inventario_rma").select("*").neq("enviado", "YES").execute()
     df = pd.DataFrame(res_rma.data)
 
     if df.empty:
-        print("No hay equipos pendientes de envío.")
+        print("Todo al día: No hay equipos pendientes.")
         return
 
-    # 3. Cálculo de los 30 días
-    # Convertimos la fecha a formato 
+    # 3. Lógica de tiempo
     df['fecha_registro'] = pd.to_datetime(df['fecha_registro'], utc=True)
     hoy = datetime.now(timezone.utc)
-    
-    # Calculamos la diferencia
     df['dias_HQ'] = (hoy - df['fecha_registro']).dt.days
 
-    # Filtramos: Solo los que tienen 30 días o más
+    # Filtro de 30 días
     vencidos = df[df['dias_HQ'] >= 30]
 
     if not vencidos.empty:
@@ -44,28 +42,36 @@ def enviar_alertas():
         for _, fila in vencidos.iterrows():
             filas_html += f"""
                 <tr>
-                    <td style='padding:8px; border:1px solid #ddd;'>{fila['rma_number']}</td>
-                    <td style='padding:8px; border:1px solid #ddd;'>{fila['serial_number']}</td>
-                    <td style='padding:8px; border:1px solid #ddd;'>{fila['empresa']}</td>
-                    <td style='padding:8px; border:1px solid #ddd; color:red;'><b>{fila['dias_HQ']} días</b></td>
+                    <td style='padding:10px; border:1px solid #444; color:#eee;'>{fila['rma_number']}</td>
+                    <td style='padding:10px; border:1px solid #444; color:#eee;'>{fila['empresa']}</td>
+                    <td style='padding:10px; border:1px solid #444; color:red;'><b>{fila['dias_HQ']} días</b></td>
                 </tr>
             """
 
-        # Enviamos el correo a través de Resend
+        # Envió de correo
         resend.Emails.send({
-            "from": "RMA Tracker <onboarding@resend.dev>",
+            "from": "RMA Alerta <onboarding@resend.dev>",
             "to": destinatarios,
-            "subject": f"ATENCIÓN: {len(vencidos)} equipos con +30 días",
+            "subject": f"⚠️ URGENTE: {len(vencidos)} equipos estancados (+30 días)",
             "html": f"""
-                <h2>Reporte de Equipos de más de 30 dias</h2>
-                <p>Los siguientes equipos superaron el límite de 30 días en HQ:</p>
-                <table style='border-collapse:collapse; width:100%;'>
-                    <tr style='background:#f2f2f2;'><th>RMA</th><th>S/N</th><th>Empresa</th><th>Días</th></tr>
-                    {filas_html}
-                </table>
+                <div style='background-color:#111; color:#fff; padding:20px; font-family:sans-serif;'>
+                    <h2 style='color:#eb1c24;'>Reporte Crítico de Equipos</h2>
+                    <p>Los siguientes equipos siguen en el taller y ya superaron los 30 días:</p>
+                    <table style='border-collapse:collapse; width:100%; border:1px solid #444;'>
+                        <tr style='background:#222; color:#eb1c24;'>
+                            <th style='padding:10px; border:1px solid #444;'>RMA</th>
+                            <th style='padding:10px; border:1px solid #444;'>Empresa</th>
+                            <th style='padding:10px; border:1px solid #444;'>Días</th>
+                        </tr>
+                        {filas_html}
+                    </table>
+                    <p style='margin-top:20px; font-size:11px; color:#888;'>
+                        Este aviso se repetirá diariamente hasta que el estado cambie a 'YES' en la base de datos.
+                    </p>
+                </div>
             """
         })
-        print(f"Alerta enviada a {len(destinatarios)} personas.")
+        print(f"Alerta insistente enviada a {len(destinatarios)} correos.")
 
 if __name__ == "__main__":
     enviar_alertas()
