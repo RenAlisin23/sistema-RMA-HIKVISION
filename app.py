@@ -15,56 +15,89 @@ def init_connection():
         return None
 
 supabase = init_connection()
-
-# 3. DISEÑO DE COLORES Y ALTO CONTRASTE (CSS)
+# 3. DISEÑO "MIDNIGHT TECH" (Colores Premium)
 st.markdown("""
     <style>
-    /* Fondo principal gris claro para que resalten las tarjetas blancas */
-    .stApp { background-color: #f4f7f6; }
+    /* Fondo principal: Gris humo ultra suave */
+    .stApp { background-color: #f8faff; }
     
-    /* Títulos en negro profundo */
-    h1, h2, h3 { color: #1e1e1e !important; font-weight: 800 !important; }
-    
-    /* Barra lateral - Estilo oscuro sólido */
-    [data-testid="stSidebar"] { 
-        background-color: #111111; 
-        border-right: 3px solid #eb1c24; 
+    /* Títulos: Degradado elegante */
+    h1 { 
+        color: #0e1117 !important; 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        letter-spacing: -1px;
     }
     
-    /* Textos de la barra lateral en blanco */
-    [data-testid="stSidebar"] .stMarkdown h2, 
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p { 
-        color: #ffffff !important; 
+    /* Barra lateral: Azul Medianoche Hikvision */
+    [data-testid="stSidebar"] { 
+        background-color: #0a0e1a; 
+        border-right: 4px solid #eb1c24; 
+    }
+    
+    /* Inputs de la barra lateral: Oscuros con borde rojo al enfocar */
+    [data-testid="stSidebar"] .stTextInput input, 
+    [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"],
+    [data-testid="stSidebar"] .stTextArea textarea {
+        background-color: #161b22 !important;
+        color: #e6edf3 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 8px;
     }
 
-    /* Tarjetas de métricas blancas con sombra */
+    /* Tarjetas de métricas: Estilo Glassmorphism ligero */
     [data-testid="stMetric"] {
         background-color: #ffffff;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0px 8px 16px rgba(0,0,0,0.08);
-        border-top: 5px solid #eb1c24;
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0px 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid #edf2f7;
     }
     
-    /* Números de métricas en negro */
-    [data-testid="stMetricValue"] { color: #1e1e1e !important; }
-    [data-testid="stMetricLabel"] { color: #555555 !important; }
-
-    /* Estilo de la Tabla */
-    .stDataFrame { background-color: white; border-radius: 10px; }
-
-    /* Botón Guardar Rojo Hikvision */
-    .stButton>button {
-        background-color: #eb1c24;
-        color: white;
-        border-radius: 10px;
-        font-weight: bold;
-        height: 3em;
-        width: 100%;
-        border: none;
+    /* Etiquetas de métricas: Color acero */
+    [data-testid="stMetricLabel"] { 
+        color: #64748b !important; 
+        font-weight: 600 !important;
+        text-transform: uppercase;
+        font-size: 0.85rem;
     }
-    .stButton>button:hover { background-color: #ff4d4d; border: none; }
+    
+    /* Valores de métricas: Negro intenso */
+    [data-testid="stMetricValue"] { 
+        color: #0f172a !important; 
+        font-weight: 800 !important;
+    }
+
+    /* Buscador: Bordes redondeados y sombra suave */
+    .stTextInput input {
+        border-radius: 12px !important;
+        border: 2px solid #e2e8f0 !important;
+        padding: 12px !important;
+    }
+
+    /* Botón: Efecto Neón Rojo */
+    .stButton>button {
+        background: linear-gradient(135deg, #eb1c24 0%, #b0141a 100%);
+        color: white !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 700 !important;
+        box-shadow: 0 4px 15px rgba(235, 28, 36, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(235, 28, 36, 0.5);
+        color: #ffffff !important;
+    }
+
+    /* Tabla: Limpieza total */
+    .stDataFrame {
+        border-radius: 15px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -122,7 +155,7 @@ if not df.empty:
 st.markdown("---")
 
 # 5. BUSCADOR Y TABLA
-st.markdown("### 🔍 Buscador Inteligente")
+st.markdown("Buscador de eventos")
 busqueda = st.text_input("", placeholder="Busca por RMA, Empresa, Serial o comentario...")
 
 if not df.empty:
