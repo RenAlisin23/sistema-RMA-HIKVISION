@@ -65,7 +65,7 @@ if not st.session_state['autenticado']:
     pantalla_login()
     st.stop()
 
-# 4. CONEXIÓN (Solo después del login)
+# 4. CONEXIÓN
 @st.cache_resource
 def init_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
@@ -103,7 +103,14 @@ st.markdown("# 📦 Panel de Control RMA")
 # Carga de datos
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    # Importante: Aquí creamos el "ID Amigable" basado en el orden de los datos
+    df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+    if not df_raw.empty:
+        # El ID amigable es simplemente la posición invertida para que el más nuevo tenga el número más alto
+        df_raw['id_amigable'] = range(len(df_raw), 0, -1)
+        df = df_raw
+    else:
+        df = df_raw
 except:
     df = pd.DataFrame()
 
@@ -115,15 +122,19 @@ if not df.empty:
 
     st.markdown("---")
 
-    # 7. EDITOR POR ID
+    # 7. EDITOR POR ID AMIGABLE
     st.markdown("### 🛠️ Editor Maestro")
-    with st.expander("📝 SELECCIONAR REGISTRO POR ID PARA MODIFICAR"):
-        opciones = ["ID: " + str(r['id']) + " | RMA: " + str(r['rma_number']) for r in res.data]
-        sel_label = st.selectbox("Buscar registro:", ["---"] + opciones)
+    with st.expander("📝 SELECCIONAR POR ID AMIGABLE PARA MODIFICAR"):
+        # Mostramos una lista con el ID Amigable y el RMA
+        opciones = [f"Nº {r['id_amigable']} | RMA: {r['rma_number']}" for _, r in df.iterrows()]
+        sel_label = st.selectbox("Buscar por número correlativo:", ["---"] + opciones)
         
         if sel_label != "---":
-            id_selecionado = int(sel_label.split("|")[0].replace("ID: ", "").strip())
-            fila = df[df['id'] == id_selecionado].iloc[0]
+            # Extraemos el ID amigable seleccionado
+            num_amigable = int(sel_label.split("|")[0].replace("Nº ", "").strip())
+            fila = df[df['id_amigable'] == num_amigable].iloc[0]
+            # Usamos el ID técnico oculto para la actualización real en Supabase
+            id_tecnico = fila['id'] 
             
             with st.form("edit_id"):
                 e_col1, e_col2 = st.columns(2)
@@ -136,16 +147,17 @@ if not df.empty:
                     n_fedex = st.text_input("Guía FedEx", value=str(fila.get('fedex_number', '')))
                     n_com = st.text_area("Notas", value=fila['comentarios'])
                 
-                if st.form_submit_button("ACTUALIZAR REGISTRO #" + str(id_selecionado)):
+                if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {num_amigable}"):
                     upd_data = {"informacion": n_est, "enviado": n_env, 
                                 "comentarios": n_com, "fedex_number": n_fedex}
-                    supabase.table("inventario_rma").update(upd_data).eq("id", id_selecionado).execute()
-                    st.success("✅ Actualizado")
+                    # Actualizamos usando el ID técnico (el feo), pero el usuario nunca lo vio
+                    supabase.table("inventario_rma").update(upd_data).eq("id", id_tecnico).execute()
+                    st.success(f"✅ Registro Nº {num_amigable} actualizado con éxito")
                     st.rerun()
 
     st.markdown("---")
 
-    # 8. TABLA
+    # 8. TABLA CON ID AMIGABLE
     busq = st.text_input("🔍 Filtrar tabla...", placeholder="RMA, Empresa o S/N")
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
@@ -153,10 +165,15 @@ if not df.empty:
         if v == 'FINALIZADO': return 'background-color: #062612; color: #34ee71; font-weight: bold;'
         return 'background-color: #2b2106; color: #eec234;'
 
+    # Mostramos el 'id_amigable' en lugar del 'id' técnico
     st.dataframe(
-        df_f[["id", "rma_number", "empresa", "modelo", "informacion", "fedex_number", "comentarios"]].style.applymap(color_est, subset=['informacion']),
+        df_f[["id_amigable", "rma_number", "empresa", "modelo", "informacion", "fedex_number", "comentarios"]].style.applymap(color_est, subset=['informacion']),
         use_container_width=True, hide_index=True,
-        column_config={"id": "ID", "fedex_number": "📦 FedEx", "informacion": "Estado"}
+        column_config={
+            "id_amigable": "Nº", 
+            "fedex_number": "📦 FedEx", 
+            "informacion": "Estado"
+        }
     )
 else:
     st.info("Sin datos.")
