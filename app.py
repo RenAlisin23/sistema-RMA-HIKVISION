@@ -186,7 +186,8 @@ if not df.empty:
             "n_ticket": "Ticket",
             "fedex_number": "📦 FedEx", 
             "informacion": "Estado",
-            "descripcion": "Descripción"
+            "descripcion": "Descripción",
+            "fecha_registro": "Fecha de Registro"
         }
     )
 else:
