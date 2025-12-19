@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 import pandas as pd
+from datetime import datetime
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="RMA Hikvision Control", layout="wide", page_icon="📦")
@@ -35,6 +36,7 @@ st.markdown("""
         border-radius: 8px !important;
         border: 1px solid #eb1c24 !important;
         font-weight: bold;
+        width: 100%;
     }
     .stButton>button:hover { background: #eb1c24; }
     </style>
@@ -47,7 +49,6 @@ if 'autenticado' not in st.session_state:
 def pantalla_login():
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
         st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=350)
         st.markdown("## Acceso Restringido")
@@ -72,26 +73,40 @@ def init_db():
 
 supabase = init_db()
 
-# 5. BARRA LATERAL (REGISTRO)
+# 5. BARRA LATERAL (REGISTRO COMPLETO)
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.markdown("### ➕ Registrar RMA")
     with st.form("reg", clear_on_submit=True):
         f_rma = st.text_input("Número RMA")
+        f_ticket = st.text_input("Nº Ticket")
+        f_rq = st.text_input("Nº RQ")
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
+        f_desc = st.text_area("Descripción (Falla/Estado)")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
         f_com = st.text_area("Comentarios")
+        
         if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
-                data = {"rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
-                        "serial_number": f_sn, "informacion": f_est, 
-                        "comentarios": f_com, "enviado": "NO", "fedex_number": ""}
+                data = {
+                    "rma_number": f_rma, 
+                    "n_ticket": f_ticket,
+                    "n_rq": f_rq,
+                    "empresa": f_emp, 
+                    "modelo": f_mod, 
+                    "serial_number": f_sn, 
+                    "descripcion": f_desc,
+                    "informacion": f_est, 
+                    "comentarios": f_com, 
+                    "enviado": "NO", 
+                    "fedex_number": ""
+                }
                 supabase.table("inventario_rma").insert(data).execute()
                 st.success("✅ Guardado")
                 st.rerun()
-    
+
     st.markdown("---")
     if st.button("🚪 Salir"):
         st.session_state['autenticado'] = False
@@ -103,37 +118,32 @@ st.markdown("# 📦 Panel de Control RMA")
 # Carga de datos
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    # Importante: Aquí creamos el "ID Amigable" basado en el orden de los datos
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     if not df_raw.empty:
-        # El ID amigable es simplemente la posición invertida para que el más nuevo tenga el número más alto
         df_raw['id_amigable'] = range(len(df_raw), 0, -1)
         df = df_raw
     else:
-        df = df_raw
+        df = pd.DataFrame()
 except:
     df = pd.DataFrame()
 
 if not df.empty:
     c_m1, c_m2, c_m3 = st.columns(3)
     c_m1.metric("TOTAL", len(df))
-    c_m2.metric("EN HQ", len(df[df['informacion'] == 'En proceso']))
-    c_m3.metric("LISTOS", len(df[df['informacion'] == 'FINALIZADO']))
+    c_m2.metric("EN PROCESO", len(df[df['informacion'] == 'En proceso']))
+    c_m3.metric("FINALIZADOS", len(df[df['informacion'] == 'FINALIZADO']))
 
     st.markdown("---")
 
-    # 7. EDITOR POR ID AMIGABLE
-    st.markdown("### 🛠️ Edición de nuevos casos ")
-    with st.expander("📝 Buscador de casos a actualizar"):
-        # Mostramos una lista con el ID Amigable y el RMA
-        opciones = [f"Nº {r['id_amigable']} | RMA: {r['rma_number']}" for _, r in df.iterrows()]
-        sel_label = st.selectbox("Buscar por número correlativo:", ["---"] + opciones)
+    # 7. EDITOR
+    st.markdown("### 🛠️ Edición de casos")
+    with st.expander("📝 Buscador de casos para actualizar"):
+        opciones = [f"Nº {r['id_amigable']} | RMA: {r['rma_number']} | {r['empresa']}" for _, r in df.iterrows()]
+        sel_label = st.selectbox("Seleccionar:", ["---"] + opciones)
         
         if sel_label != "---":
-            # Extraemos el ID amigable seleccionado
             num_amigable = int(sel_label.split("|")[0].replace("Nº ", "").strip())
             fila = df[df['id_amigable'] == num_amigable].iloc[0]
-            # Usamos el ID técnico oculto para la actualización real en Supabase
             id_tecnico = fila['id'] 
             
             with st.form("edit_id"):
@@ -145,35 +155,38 @@ if not df.empty:
                                        index=0 if fila['enviado'] == "NO" else 1)
                 with e_col2:
                     n_fedex = st.text_input("Guía FedEx", value=str(fila.get('fedex_number', '')))
-                    n_com = st.text_area("Notas", value=fila['comentarios'])
+                    n_desc = st.text_area("Descripción", value=str(fila.get('descripcion', '')))
+                
+                n_com = st.text_area("Notas/Comentarios", value=str(fila.get('comentarios', '')))
                 
                 if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {num_amigable}"):
                     upd_data = {"informacion": n_est, "enviado": n_env, 
-                                "comentarios": n_com, "fedex_number": n_fedex}
-                    # Actualizamos usando el ID técnico (el feo), pero el usuario nunca lo vio
+                                "comentarios": n_com, "fedex_number": n_fedex, "descripcion": n_desc}
                     supabase.table("inventario_rma").update(upd_data).eq("id", id_tecnico).execute()
-                    st.success(f"✅ Registro Nº {num_amigable} actualizado con éxito")
+                    st.success(f"Registro Nº {num_amigable} actualizado")
                     st.rerun()
 
     st.markdown("---")
 
-    # 8. TABLA CON ID AMIGABLE
-    busq = st.text_input("🔍 Filtrar tabla...", placeholder="RMA, Empresa o S/N")
+    # 8. TABLA FINAL
+    busq = st.text_input("🔍 Filtrar tabla...", placeholder="RMA, Ticket, Empresa o S/N")
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
     def color_est(v):
         if v == 'FINALIZADO': return 'background-color: #062612; color: #34ee71; font-weight: bold;'
         return 'background-color: #2b2106; color: #eec234;'
 
-    # Mostramos el 'id_amigable' en lugar del 'id' técnico
     st.dataframe(
-        df_f[["id_amigable", "rma_number", "empresa", "modelo", "informacion", "fedex_number", "comentarios"]].style.applymap(color_est, subset=['informacion']),
+        df_f[["id_amigable", "rma_number", "n_ticket", "empresa", "modelo", "descripcion", "informacion", "fedex_number"]].style.applymap(color_est, subset=['informacion']),
         use_container_width=True, hide_index=True,
         column_config={
             "id_amigable": "Nº", 
+            "rma_number": "RMA",
+            "n_ticket": "Ticket",
             "fedex_number": "📦 FedEx", 
-            "informacion": "Estado"
+            "informacion": "Estado",
+            "descripcion": "Descripción"
         }
     )
 else:
-    st.info("Sin datos.")
+    st.info("No hay datos registrados.")
