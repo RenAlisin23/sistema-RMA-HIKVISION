@@ -1,28 +1,28 @@
-name: Robot_Alertas_RMA
+name: Enviar Alertas RMA Cada 2 Dias
+
 on:
   schedule:
-    # Esta línea es la alarma. '0 13' significa 13:00 UTC, que son las 8:00 AM en Perú.
-    - cron: '0 13 * * *' 
-  workflow_dispatch: 
+    - cron: '0 13 */2 * *'
+  workflow_dispatch: # Esto te deja probarlo manualmente con un botón
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar codigo
+      - name: Checkout código
         uses: actions/checkout@v3
-        
+
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-          
-      - name: Instalar librerias
-        run: pip install pandas supabase resend
-        
-      - name: Ejecutar Robot
+          python-version: '3.12'
+
+      - name: Instalar dependencias
+        run: |
+          pip install pandas supabase resend
+
+      - name: Ejecutar script de alertas
         env:
-          # Aquí el archivo jala las llaves que guardaste en los "Secrets"
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
