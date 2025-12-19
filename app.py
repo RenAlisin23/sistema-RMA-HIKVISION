@@ -3,20 +3,25 @@ from supabase import create_client
 import pandas as pd
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="HIK-RMA System", layout="wide", page_icon="📦")
+st.set_page_config(page_title="RMA Hikvision Control", layout="wide", page_icon="📦")
 
-# 2. DISEÑO CSS PROFESIONAL (OCULTA TODO LO INNECESARIO)
+# 2. DISEÑO CSS PARA BLINDAR LA APP (OCULTA MANAGE APP, TOOLBAR Y DECORACIÓN)
 st.markdown("""
     <style>
-    /* OCULTAR BARRAS, MENÚS Y EL BOTÓN 'MANAGE APP' */
+    /* OCULTAR TODOS LOS ELEMENTOS DE DESARROLLO Y GESTIÓN */
     header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
-    [data-testid="stToolbar"] { visibility: hidden; }
-    [data-testid="stDecoration"] { display: none; }
-    [data-testid="stManageAppButton"] { display: none !important; }
-    .stDeployButton { display:none; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
     
+    /* ELIMINAR EL BOTÓN 'MANAGE APP' Y 'DEPLOY' */
+    button[title="View source on GitHub"] { display: none !important; }
+    .stDeployButton { display: none !important; }
+    #stManageAppButton { display: none !important; }
+    [data-testid="stManageAppButton"] { display: none !important; }
+
     /* ESTILO DARK INDUSTRIAL */
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     h1, h2, h3, p, label { color: #e6edf3 !important; font-family: 'Inter', sans-serif; }
@@ -29,156 +34,138 @@ st.markdown("""
         background-color: #161b22;
         padding: 20px;
         border-radius: 15px;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
         border: 1px solid #30363d;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
     }
-    [data-testid="stMetricValue"] { color: #58a6ff !important; font-weight: bold; }
+    [data-testid="stMetricValue"] { color: #58a6ff !important; }
 
-    /* BOTONES ROJO HIKVISION */
+    /* BOTONES ROJO SANGRE */
     .stButton>button {
         background: #8b0000;
-        color: #f0f6fc !important;
+        color: white !important;
         border-radius: 8px !important;
         border: 1px solid #eb1c24 !important;
-        width: 100%;
         font-weight: bold;
     }
-    .stButton>button:hover { background: #eb1c24; border: 1px solid #ff4d4d !important; }
+    .stButton>button:hover { background: #eb1c24; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. SISTEMA DE LOGIN
+# 3. SISTEMA DE LOGIN INTEGRADO
 if 'autenticado' not in st.session_state:
     st.session_state['autenticado'] = False
 
-def login_screen():
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
+def pantalla_login():
+    c1, c2, c3 = st.columns([1,2,1])
+    with col2 := c2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=350)
-        st.markdown("## 🔐 Identificador de Usuario")
-        with st.form("login_form"):
-            user = st.text_input("Usuario")
-            password = st.text_input("Contraseña", type="password")
-            if st.form_submit_button("ACCEDER AL SISTEMA"):
-                if user == "admin" and password == "hik2024":
+        st.markdown("## 🔐 Acceso Restringido")
+        with st.form("login"):
+            u = st.text_input("Usuario")
+            p = st.text_input("Contraseña", type="password")
+            if st.form_submit_button("ENTRAR"):
+                if u == "admin" and p == "Hik13579":
                     st.session_state['autenticado'] = True
                     st.rerun()
                 else:
-                    st.error("❌ Usuario o clave incorrectos")
+                    st.error("Acceso denegado")
 
 if not st.session_state['autenticado']:
-    login_screen()
+    pantalla_login()
     st.stop()
 
-# 4. CONEXIÓN A BASE DE DATOS
+# 4. CONEXIÓN (Solo después del login)
 @st.cache_resource
-def init_connection():
+def init_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-supabase = init_connection()
+supabase = init_db()
 
 # 5. BARRA LATERAL (REGISTRO)
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
-    st.markdown("### ➕ Nuevo Ingreso")
-    with st.form("form_registro", clear_on_submit=True):
-        rma = st.text_input("RMA Number")
-        empresa = st.text_input("Empresa")
-        modelo = st.text_input("Modelo")
-        sn = st.text_input("Serial Number")
-        info = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
-        coments = st.text_area("Comentarios")
-        if st.form_submit_button("GUARDAR EQUIPO"):
-            if rma and empresa:
-                nuevo = {
-                    "rma_number": rma, "empresa": empresa, "modelo": modelo, 
-                    "serial_number": sn, "informacion": info, "comentarios": coments, 
-                    "enviado": "NO", "fedex_number": ""
-                }
-                supabase.table("inventario_rma").insert(nuevo).execute()
-                st.success("✅ Registrado")
+    st.markdown("### ➕ Registrar RMA")
+    with st.form("reg", clear_on_submit=True):
+        f_rma = st.text_input("Número RMA")
+        f_emp = st.text_input("Empresa")
+        f_mod = st.text_input("Modelo")
+        f_sn  = st.text_input("S/N")
+        f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
+        f_com = st.text_area("Comentarios")
+        if st.form_submit_button("GUARDAR"):
+            if f_rma and f_emp:
+                data = {"rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
+                        "serial_number": f_sn, "informacion": f_est, 
+                        "comentarios": f_com, "enviado": "NO", "fedex_number": ""}
+                supabase.table("inventario_rma").insert(data).execute()
+                st.success("✅ Guardado")
                 st.rerun()
     
     st.markdown("---")
-    if st.button("🚪 Cerrar Sesión"):
+    if st.button("🚪 Salir"):
         st.session_state['autenticado'] = False
         st.rerun()
 
-# 6. PANEL PRINCIPAL
-st.markdown("# 📦 RMA Control Center")
+# 6. CUERPO PRINCIPAL
+st.markdown("# 📦 Panel de Control RMA")
 
 # Carga de datos
-try:
-    res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-except:
-    df = pd.DataFrame()
+res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
+df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
 
 if not df.empty:
     # Métricas
-    m1, m2, m3 = st.columns(3)
-    m1.metric("EQUIPOS TOTALES", len(df))
-    m2.metric("EN TALLER", len(df[df['informacion'] == 'En proceso']))
-    m3.metric("FINALIZADOS", len(df[df['informacion'] == 'FINALIZADO']))
+    c_m1, c_m2, c_m3 = st.columns(3)
+    c_m1.metric("TOTAL", len(df))
+    c_m2.metric("EN TALLER", len(df[df['informacion'] == 'En proceso']))
+    c_m3.metric("LISTOS", len(df[df['informacion'] == 'FINALIZADO']))
 
     st.markdown("---")
 
-    # 7. PANEL DE EDICIÓN POR ID (BUSCAR Y CAMBIAR)
-    st.markdown("### 🛠️ Modificar por Registro ID")
-    with st.expander("📝 BUSCAR POR ID PARA EDITAR VALORES", expanded=False):
-        # Creamos una lista amigable: "ID: 45 | RMA: RB_2025..."
-        df['display_name'] = "ID: " + df['id'].astype(str) + " | RMA: " + df['rma_number'].astype(str)
-        dict_ids = dict(zip(df['display_name'], df['id']))
+    # 7. EDITOR POR ID (BUSCAR Y ACTUALIZAR)
+    st.markdown("### 🛠️ Editor Maestro")
+    with st.expander("📝 SELECCIONAR REGISTRO POR ID PARA MODIFICAR"):
+        # Lista desplegable con ID y RMA
+        opciones = ["ID: " + str(r['id']) + " | RMA: " + str(r['rma_number']) for r in res.data]
+        sel_label = st.selectbox("Buscar registro:", ["---"] + opciones)
         
-        seleccion = st.selectbox("Seleccione el registro exacto:", ["---"] + list(dict_ids.keys()))
-        
-        if seleccion != "---":
-            id_real = dict_ids[seleccion]
-            fila = df[df['id'] == id_real].iloc[0]
+        if sel_label != "---":
+            id_selecionado = int(sel_label.split("|")[0].replace("ID: ", "").strip())
+            fila = df[df['id'] == id_selecionado].iloc[0]
             
-            with st.form("form_edicion_id"):
-                col_e1, col_e2 = st.columns(2)
-                with col_e1:
-                    edit_info = st.selectbox("Estado", ["En proceso", "FINALIZADO"], 
-                                           index=0 if fila['informacion'] == "En proceso" else 1)
-                    edit_enviado = st.selectbox("¿Enviado? (YES para parar correos)", ["NO", "YES"], 
-                                              index=0 if fila['enviado'] != "YES" else 1)
-                with col_e2:
-                    edit_fedex = st.text_input("Número FedEx", value=str(fila.get('fedex_number', '')))
-                    edit_coments = st.text_area("Comentarios Actualizados", value=fila['comentarios'])
+            with st.form("edit_id"):
+                e_col1, e_col2 = st.columns(2)
+                with e_col1:
+                    n_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"], 
+                                       index=0 if fila['informacion'] == "En proceso" else 1)
+                    n_env = st.selectbox("Alerta (enviado)", ["NO", "YES"], 
+                                       index=0 if fila['enviado'] == "NO" else 1)
+                with e_col2:
+                    n_fedex = st.text_input("Guía FedEx", value=str(fila.get('fedex_number', '')))
+                    n_com = st.text_area("Notas", value=fila['comentarios'])
                 
-                if st.form_submit_button("CONFIRMAR CAMBIOS EN ID " + str(id_real)):
-                    upd = {
-                        "informacion": edit_info,
-                        "enviado": edit_enviado,
-                        "comentarios": edit_coments,
-                        "fedex_number": edit_fedex
-                    }
-                    supabase.table("inventario_rma").update(upd).eq("id", id_real).execute()
-                    st.success(f"✅ Registro {id_real} actualizado.")
+                if st.form_submit_button("ACTUALIZAR REGISTRO #" + str(id_selecionado)):
+                    upd_data = {"informacion": n_est, "enviado": n_env, 
+                                "comentarios": n_com, "fedex_number": n_fedex}
+                    supabase.table("inventario_rma").update(upd_data).eq("id", id_selecionado).execute()
+                    st.success("✅ Registro actualizado")
                     st.rerun()
 
     st.markdown("---")
 
-    # 8. BUSCADOR Y TABLA
-    busqueda = st.text_input("🔍 Filtro rápido", placeholder="Empresa, RMA o Serial...")
-    df_mostrar = df[df.apply(lambda row: row.astype(str).str.contains(busqueda, case=False).any(), axis=1)] if busqueda else df
+    # 8. VISUALIZACIÓN
+    busq = st.text_input("🔍 Filtrar tabla...", placeholder="RMA, Empresa o S/N")
+    df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
-    def style_status(val):
-        if val == 'FINALIZADO': return 'background-color: #062612; color: #34ee71; font-weight: bold;'
+    def color_est(v):
+        if v == 'FINALIZADO': return 'background-color: #062612; color: #34ee71; font-weight: bold;'
         return 'background-color: #2b2106; color: #eec234;'
 
-    # Mostramos el ID en la tabla para facilitar la edición
-    cols_tab = ["id", "rma_number", "empresa", "modelo", "informacion", "fedex_number", "comentarios", "fecha_registro"]
     st.dataframe(
-        df_mostrar[cols_tab].style.applymap(style_status, subset=['informacion']),
+        df_f[["id", "rma_number", "empresa", "modelo", "informacion", "fedex_number", "comentarios"]].style.applymap(color_est, subset=['informacion']),
         use_container_width=True, hide_index=True,
-        column_config={
-            "id": st.column_config.NumberColumn("ID", width="small"),
-            "fedex_number": "📦 FedEx",
-            "fecha_registro": st.column_config.DatetimeColumn("Ingreso", format="DD/MM/YY HH:mm")
-        }
+        column_config={"id": "ID", "fedex_number": "📦 FedEx", "informacion": "Estado"}
     )
 else:
-    st.info("No hay datos.")
+    st.info("Sin datos para mostrar.")
