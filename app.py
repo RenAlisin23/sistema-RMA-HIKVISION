@@ -3,117 +3,134 @@ from supabase import create_client
 import pandas as pd
 
 # 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="RMA Tracker | Hikvision", layout="wide", page_icon="📦")
+st.set_page_config(page_title="RMA Hikvision | Pro", layout="wide", page_icon="🛡️")
 
-# 2. CONEXIÓN (Mantenemos tu lógica pero con blindaje)
+# 2. CONEXIÓN (Blindada)
 @st.cache_resource
 def init_connection():
     try:
-        url = st.secrets["SUPABASE_URL"]
-        key = st.secrets["SUPABASE_KEY"]
-        return create_client(url, key)
+        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     except:
-        st.error("Error de conexión. Revisa los Secrets.")
+        st.error("⚠️ Error de conexión. Revisa los Secrets.")
         return None
 
 supabase = init_connection()
 
-# 3. ESTILO CSS PERSONALIZADO (Aquí está la magia)
+# 3. DISEÑO DE COLORES Y ESTILO (Darker Background + Modern Cards)
 st.markdown("""
     <style>
-    [data-testid="stMetricValue"] { font-size: 28px; color: #eb1c24; }
-    .stButton>button { width: 100%; border-radius: 20px; background-color: #eb1c24; color: white; border: none; }
-    .stButton>button:hover { background-color: #c1161d; color: white; }
-    .main { background-color: #f8f9fa; }
-    div[data-testid="stExpander"] { border: none; box-shadow: 0px 4px 12px rgba(0,0,0,0.05); background: white; border-radius: 15px; }
+    /* Fondo general */
+    .stApp { background-color: #f0f2f6; }
+    
+    /* Estilo de la barra lateral */
+    [data-testid="stSidebar"] { background-color: #1e1e1e; border-right: 2px solid #eb1c24; }
+    [data-testid="stSidebar"] .stMarkdown h2, [data-testid="stSidebar"] label { color: white !important; }
+    
+    /* Tarjetas de métricas */
+    [data-testid="stMetric"] {
+        background-color: white;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+        border-left: 5px solid #eb1c24;
+    }
+
+    /* Botón de guardar */
+    .stButton>button {
+        background-color: #eb1c24;
+        color: white;
+        border-radius: 8px;
+        font-weight: bold;
+        border: none;
+        transition: 0.3s;
+    }
+    .stButton>button:hover { background-color: #ff4d4d; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- CABECERA ---
-col_logo, col_tit = st.columns([1, 4])
-with col_tit:
-    st.title("Panel de Control RMA")
-    st.caption("Gestión de inventario y seguimiento de garantías")
-
-# 4. OBTENER DATOS PRIMERO PARA LAS MÉTRICAS
-try:
-    # Intento obtener datos ordenados, si falla por la columna fecha, los trae normal
-    try:
-        res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    except:
-        res = supabase.table("inventario_rma").select("*").execute()
+# --- BARRA LATERAL (SIDEBAR) PARA REGISTRO ---
+with st.sidebar:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Hikvision_logo.svg/1200px-Hikvision_logo.svg.png", width=150)
+    st.header("➕ Nuevo Ingreso")
+    st.caption("Completa los datos del equipo que ingresa al taller.")
     
-    df_base = pd.DataFrame(res.data) if res.data else pd.DataFrame()
-except Exception as e:
-    st.error(f"Error al conectar con la tabla: {e}")
-    df_base = pd.DataFrame()
-
-# --- MÉTRICAS RÁPIDAS ---
-if not df_base.empty:
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Total Equipos", len(df_base))
-    m2.metric("En Proceso", len(df_base[df_base['informacion'] == 'En proceso']))
-    m3.metric("Finalizados", len(df_base[df_base['informacion'] == 'FINALIZADO']))
-    m4.metric("Empresas", df_base['empresa'].nunique())
-
-st.divider()
-
-# --- SECCIÓN 1: REGISTRO ---
-with st.expander("REGISTRAR NUEVO INGRESO", expanded=False):
-    with st.form("formulario_registro", clear_on_submit=True):
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            rma = st.text_input("RMA Number", placeholder="Ej: RMA-1002")
-            n_rq = st.text_input("Nº RQ")
-            empresa = st.text_input("Empresa")
-        with c2:
-            ticket = st.text_input("Nº Ticket")
-            modelo = st.text_input("Modelo")
-            sn = st.text_input("Serial Number (S/N)")
-        with c3:
-            info = st.selectbox("Estado Inicial", ["En proceso", "FINALIZADO"])
-            coments = st.text_area("Comentarios", height=68)
+    with st.form("form_sidebar", clear_on_submit=True):
+        rma = st.text_input("RMA Number")
+        empresa = st.text_input("Empresa")
+        n_rq = st.text_input("Nº RQ")
+        ticket = st.text_input("Nº Ticket")
+        modelo = st.text_input("Modelo")
+        sn = st.text_input("Serial Number")
+        info = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
+        coments = st.text_area("Comentarios", height=100)
         
-        if st.form_submit_button("GUARDAR REGISTRO"):
+        btn_guardar = st.form_submit_button("GUARDAR EN BASE DE DATOS")
+        
+        if btn_guardar:
             if rma and empresa:
-                nuevo_dato = {
+                nuevo = {
                     "rma_number": rma, "n_rq": n_rq, "empresa": empresa,
                     "n_ticket": ticket, "modelo": modelo, "serial_number": sn,
                     "informacion": info, "comentarios": coments, "enviado": "NO"
                 }
-                supabase.table("inventario_rma").insert(nuevo_dato).execute()
-                st.success("¡Registro guardado!")
+                supabase.table("inventario_rma").insert(nuevo).execute()
+                st.success("✅ ¡Registrado!")
                 st.rerun()
             else:
-                st.error("Faltan campos obligatorios (RMA y Empresa)")
+                st.error("Faltan RMA y Empresa")
 
-# --- SECCIÓN 2: BUSCADOR ---
-st.subheader("Filtros y Búsqueda")
-busqueda = st.text_input("", placeholder="Busca por Empresa, RMA o Serial Number...")
+# --- CUERPO PRINCIPAL ---
+st.title("🛡️ Sistema de Control RMA")
 
-if not df_base.empty:
-    # Lógica de filtrado
+# Obtener datos
+try:
+    try:
+        res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
+    except:
+        res = supabase.table("inventario_rma").select("*").execute()
+    df = pd.DataFrame(res.data) if res.data else pd.DataFrame()
+except:
+    df = pd.DataFrame()
+
+# Métricas en tarjetas blancas
+if not df.empty:
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Equipos", len(df))
+    m2.metric("Pendientes", len(df[df['informacion'] == 'En proceso']))
+    m3.metric("Finalizados", len(df[df['informacion'] == 'FINALIZADO']))
+
+st.write("---")
+
+# Buscador moderno
+busqueda = st.text_input("🔍 Buscar por cualquier campo (Empresa, RMA, S/N o Comentario):", placeholder="Escribe aquí para filtrar...")
+
+if not df.empty:
+    # Filtro inteligente
     if busqueda:
-        df_mostrar = df_base[
-            df_base['empresa'].str.contains(busqueda, case=False, na=False) | 
-            df_base['rma_number'].str.contains(busqueda, case=False, na=False) |
-            df_base['serial_number'].str.contains(busqueda, case=False, na=False)
-        ]
+        mask = df.apply(lambda row: row.astype(str).str.contains(busqueda, case=False).any(), axis=1)
+        df_mostrar = df[mask]
     else:
-        df_mostrar = df_base
+        df_mostrar = df
 
-    # Estilizar la tabla antes de mostrarla
-    def color_estado(val):
-        color = '#d4edda' if val == 'FINALIZADO' else '#fff3cd'
-        return f'background-color: {color}'
+    # Configuración de colores en la tabla
+    def apply_style(val):
+        color = '#155724' if val == 'FINALIZADO' else '#856404'
+        bg = '#d4edda' if val == 'FINALIZADO' else '#fff3cd'
+        return f'background-color: {bg}; color: {color}; font-weight: bold; border-radius: 5px;'
 
-    columnas = ["rma_number", "n_rq", "empresa", "modelo", "serial_number", "informacion", "fecha_registro"]
+    # Mostrar Tabla
+    columnas_orden = ["rma_number", "n_ticket", "empresa", "modelo", "serial_number", "enviado", "informacion", "comentarios", "fecha_registro"]
     
-    # Aplicamos estilo visual a la tabla
     st.dataframe(
-        df_mostrar[columnas].style.applymap(color_estado, subset=['informacion']),
+        df_mostrar[columnas_orden].style.applymap(apply_style, subset=['informacion']),
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
+        column_config={
+            "rma_number": st.column_config.TextColumn("RMA"),
+            "informacion": st.column_config.TextColumn("ESTADO"),
+            "comentarios": st.column_config.TextColumn("COMENTARIOS", width="large"),
+            "fecha_registro": st.column_config.DatetimeColumn("FECHA", format="DD/MM/YYYY HH:mm")
+        }
     )
 else:
-    st.info("No hay datos para mostrar.")
+    st.info("Aún no hay equipos registrados.")
