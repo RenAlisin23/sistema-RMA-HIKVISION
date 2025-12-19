@@ -15,7 +15,7 @@ def init_connection():
         return None
 
 supabase = init_connection()
-# 3. DISEÑO "MIDNIGHT TECH" (Colores Premium)
+# 3. DISEÑO 
 st.markdown("""
     <style>
     /* Fondo principal: Gris humo ultra suave */
