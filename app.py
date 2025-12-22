@@ -173,11 +173,22 @@ if not df.empty:
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
     def color_est(v):
-        if v == 'FINALIZADO': return 'background-color: #062612; color: #34ee71; font-weight: bold;'
-        return 'background-color: #2b2106; color: #eec234;'
+        # Colores para la columna 'informacion' (Estado)
+        if v == 'FINALIZADO': 
+            return 'background-color: #062612; color: #34ee71; font-weight: bold;'
+        if v == 'En proceso':
+            return 'background-color: #2b2106; color: #eec234;'
+    
+        # Colores para la columna 'enviado'
+        if v == 'YES':
+            return 'background-color: #1a1a40; color: #50fa7b; font-weight: bold;' # Azul oscuro con verde
+        if v == 'NO':
+            return 'background-color: #3e0b0b; color: #ff5555;' # Rojo oscuro con rojo claro
+        
+        return ''''
 
     st.dataframe(
-        df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios", "informacion", "fedex_number","fecha_registro","enviado"]].style.applymap(color_est, subset=['informacion',"enviado"]),
+        df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios","enviado","informacion", "fedex_number","fecha_registro"]].style.applymap(color_est, subset=['informacion',"enviado"]),
         use_container_width=True, hide_index=True,
         column_config={
             "id_amigable": "Nº", 
