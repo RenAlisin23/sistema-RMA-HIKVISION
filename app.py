@@ -177,7 +177,7 @@ if not df.empty:
         return 'background-color: #2b2106; color: #eec234;'
 
     st.dataframe(
-        df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios", "informacion", "fedex_number","fecha_registro"]].style.applymap(color_est, subset=['informacion',"enviado"]),
+        df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios", "informacion", "fedex_number","fecha_registro","enviado"]].style.applymap(color_est, subset=['informacion',"enviado"]),
         use_container_width=True, hide_index=True,
         column_config={
             "id_amigable": "Nº", 
