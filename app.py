@@ -185,7 +185,7 @@ if not df.empty:
         if v == 'NO':
             return 'background-color: #3e0b0b; color: #ff5555;' # Rojo oscuro con rojo claro
         
-        return ''''
+        return ''
 
     st.dataframe(
         df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios","enviado","informacion", "fedex_number","fecha_registro"]].style.applymap(color_est, subset=['informacion',"enviado"]),
