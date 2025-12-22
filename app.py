@@ -177,16 +177,16 @@ if not df.empty:
         return 'background-color: #2b2106; color: #eec234;'
 
     st.dataframe(
-        df_f[["id_amigable", "rma_number","n_rq","n_ticket", "empresa", "modelo", "descripcion", "informacion", "fedex_number","fecha_registro"]].style.applymap(color_est, subset=['informacion']),
+        df_f[["id_amigable","n_rq","n_ticket", "empresa", "modelo", "descripcion","comentarios", "informacion", "fedex_number","fecha_registro"]].style.applymap(color_est, subset=['informacion']),
         use_container_width=True, hide_index=True,
         column_config={
             "id_amigable": "Nº", 
-            "rma_number": "RMA",
             "n_rq": "Número de RQ",
             "n_ticket": "Ticket",
             "fedex_number": "📦 FedEx", 
             "informacion": "Estado",
             "descripcion": "Descripción",
+            "comentarios": "Comentarios",
             "fecha_registro": "Fecha de Registro"
         }
     )
