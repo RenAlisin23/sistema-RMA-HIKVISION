@@ -185,7 +185,7 @@ if not df.empty:
             "n_ticket": "Ticket",
             "fedex_number": "📦 FedEx", 
             "informacion": "Estado",
-            "enviado": "enviado"
+            "enviado": "Enviado",
             "descripcion": "Descripción",
             "comentarios": "Comentarios",
             "fecha_registro": "Fecha de Registro"
