@@ -93,21 +93,36 @@ def preparar_excel(df):
 
 # 5. REGISTRO (SIDEBAR)
 with st.sidebar:
-    st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=120)
-    st.caption(f"Conectado como: {st.session_state['rol'].upper()}")
-    st.markdown("---")
+    st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
+    st.markdown("### ➕ Registrar RMA")
     with st.form("reg", clear_on_submit=True):
-        f_rma = st.text_input("RMA")
+        f_rma = st.text_input("Número RMA")
+        f_ticket = st.text_input("Nº Ticket")
+        f_rq = st.text_input("Nº RQ")
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
-        f_sn = st.text_input("S/N")
+        f_sn  = st.text_input("S/N")
+        f_desc = st.text_area("Ingrese partes del modelo aplicadas")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
-        if st.form_submit_button("REGISTRAR EQUIPO"):
+        f_com = st.text_area("Comentarios")
+        
+        if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
-                supabase.table("inventario_rma").insert({
-                    "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
-                    "serial_number": f_sn, "informacion": f_est, "enviado": "NO"
-                }).execute()
+                data = {
+                    "rma_number": f_rma, 
+                    "n_ticket": f_ticket,
+                    "n_rq": f_rq,
+                    "empresa": f_emp, 
+                    "modelo": f_mod, 
+                    "serial_number": f_sn, 
+                    "descripcion": f_desc,
+                    "informacion": f_est, 
+                    "comentarios": f_com, 
+                    "enviado": "NO", 
+                    "fedex_number": ""
+                }
+                supabase.table("inventario_rma").insert(data).execute()
+                st.success("✅ Guardado")
                 st.rerun()
     if st.button("Cerrar Sesión"):
         st.session_state.update({'autenticado': False, 'rol': None})
