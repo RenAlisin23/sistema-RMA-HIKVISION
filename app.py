@@ -56,7 +56,7 @@ def pantalla_login():
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=280)
-        st.markdown("<h2 style='text-align: center;'>Portal RMA Professional</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Portal RMA</h2>", unsafe_allow_html=True)
         with st.form("login"):
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
