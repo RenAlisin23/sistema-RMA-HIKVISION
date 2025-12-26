@@ -18,27 +18,28 @@ st.markdown("""
     [data-testid="stStatusWidget"] { display: none !important; }
     [data-testid="stManageAppButton"] { display: none !important; }
     .stDeployButton { display: none !important; }
-    .stApp { background-color: #0d1117; color: #e6edf3; }
+
+    .stApp { background-color: #0d1117; color: #c9d1d9; }
+    h1, h2, h3, p, label { color: #e6edf3 !important; font-family: 'Inter', sans-serif; }
+    
+    [data-testid="stSidebar"] { background-color: #010409; border-right: 2px solid #eb1c24; }
+    
     [data-testid="stMetric"] {
         background-color: #161b22;
+        padding: 20px;
+        border-radius: 15px;
         border: 1px solid #30363d;
-        border-radius: 8px;
-        padding: 15px !important;
     }
-    [data-testid="stSidebar"] {
-        background-color: #010409;
-        border-right: 1px solid #30363d;
-    }
+
     .stButton>button {
-        background-color: #21262d;
-        color: #c9d1d9;
-        border: 1px solid #30363d;
-        border-radius: 6px;
+        background: #8b0000;
+        color: white !important;
+        border-radius: 8px !important;
+        border: 1px solid #eb1c24 !important;
+        font-weight: bold;
+        width: 100%;
     }
-    .stButton>button:hover {
-        border-color: #eb1c24;
-        color: #eb1c24;
-    }
+    .stButton>button:hover { background: #eb1c24; }
     </style>
     """, unsafe_allow_html=True)
 
