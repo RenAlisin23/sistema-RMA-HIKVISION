@@ -10,8 +10,14 @@ st.set_page_config(page_title="Gestión RMA Hikvision", layout="wide")
 # 2. CSS PROFESIONAL
 st.markdown("""
     <style>
+    header { visibility: hidden; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="stManageAppButton"] { display: none !important; }
+    .stDeployButton { display: none !important; }
     .stApp { background-color: #0d1117; color: #e6edf3; }
     [data-testid="stMetric"] {
         background-color: #161b22;
