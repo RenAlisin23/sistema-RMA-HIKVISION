@@ -105,8 +105,8 @@ with st.sidebar:
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
-        f_est = st.selectbox("Estado", ["🔴 En proceso", "🟢 FINALIZADO"])
-        f_env = st.selectbox("Enviado", ["🔴 NO", "🟢 SI"])
+        f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
+        f_env = st.selectbox("Enviado", ["NO", "YES"])
         f_com = st.text_area("Comentarios")
         if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
@@ -158,8 +158,8 @@ if not df.empty:
         "Seleccionar": st.column_config.CheckboxColumn("🗑️"),
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
         "fecha_registro": st.column_config.DateColumn("Fecha Ingreso", disabled=True),
-        "informacion": st.column_config.SelectboxColumn("Estado", options=["🔴 En proceso", "🟢 FINALIZADO"]),
-        "enviado": st.column_config.SelectboxColumn("Enviado", options=["🔴 NO", "🟢 SI"]),
+        "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
+        "enviado": st.column_config.SelectboxColumn("Enviado", options=["NO", "YES"]),
     }
 
     df_editado = st.data_editor(df_f, column_config=config_tabla, use_container_width=True, hide_index=True, disabled=not es_admin)
