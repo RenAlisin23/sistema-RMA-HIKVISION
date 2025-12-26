@@ -7,7 +7,7 @@ import io
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="RMA Hikvision Pro", layout="wide")
 
-# 2. CSS PROFESIONAL
+# 2. CSS PROFESIONAL (Enterprise Dark Mode)
 st.markdown("""
     <style>
     #MainMenu { visibility: hidden; }
@@ -75,26 +75,31 @@ def preparar_excel(df):
         df_clean.to_excel(writer, index=False, sheet_name='Reporte_RMA')
     return output.getvalue()
 
-# 4. SIDEBAR (Añadir Registros - Disponible para todos)
+# 4. SIDEBAR (Registro de nuevos equipos)
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.markdown(f"**Sesión:** {st.session_state['rol'].upper()}")
-    
-    with st.form("reg_form", clear_on_submit=True):
-        st.markdown("### ➕ Nuevo Registro")
+    with st.form("reg", clear_on_submit=True):
+        st.markdown("### ➕ Registrar RMA")
         f_rma = st.text_input("Número RMA")
         f_ticket = st.text_input("Nº Ticket")
+        f_rq = st.text_input("Nº RQ")
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
-        f_sn = st.text_input("S/N")
+        f_sn  = st.text_input("S/N")
+        f_desc = st.text_area("Partes aplicadas")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
-        if st.form_submit_button("REGISTRAR"):
+        f_com = st.text_area("Comentarios")
+        
+        if st.form_submit_button("GUARDAR NUEVO"):
             if f_rma and f_emp:
                 supabase.table("inventario_rma").insert({
-                    "rma_number": f_rma, "n_ticket": f_ticket, "empresa": f_emp, 
-                    "modelo": f_mod, "serial_number": f_sn, "informacion": f_est, "enviado": "NO"
+                    "rma_number": f_rma, "n_ticket": f_ticket, "n_rq": f_rq,
+                    "empresa": f_emp, "modelo": f_mod, "serial_number": f_sn, 
+                    "descripcion": f_desc, "informacion": f_est, "comentarios": f_com,
+                    "enviado": "NO", "fedex_number": ""
                 }).execute()
-                st.success("Registrado")
+                st.success("✅ Guardado")
                 st.rerun()
     
     if st.button("🚪 Cerrar Sesión"):
@@ -102,12 +107,13 @@ with st.sidebar:
         st.rerun()
 
 # 5. CARGA DE DATOS
-st.title("📦 Control de Inventario")
+st.title("📦 Control de Inventario RMA")
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
         df['fecha_registro'] = pd.to_datetime(df['fecha_registro']).dt.date
+        # ID AMIGABLE BASADO EN EL ORDEN
         df['id_amigable'] = range(len(df), 0, -1)
         if st.session_state['rol'] == 'admin':
             df.insert(0, "Seleccionar", False)
@@ -116,22 +122,21 @@ except: df = pd.DataFrame()
 if not df.empty:
     # Métricas
     m1, m2, m3 = st.columns(3)
-    m1.metric("Total", len(df))
+    m1.metric("Total Equipos", len(df))
     m2.metric("En Proceso", len(df[df['informacion'] == 'En proceso']))
     m3.metric("Finalizados", len(df[df['informacion'] == 'FINALIZADO']))
 
-    # Buscador y Excel
+    # Buscador y Excel Alineados
     c_search, c_excel = st.columns([3, 1])
     with c_search:
-        busq = st.text_input("Buscador", placeholder="🔍 Filtrar...", label_visibility="collapsed")
+        busq = st.text_input("Buscador", placeholder="🔍 Filtrar por RMA, Ticket, Empresa...", label_visibility="collapsed")
     with c_excel:
-        st.download_button("📥 Excel", preparar_excel(df), "RMA_Report.xlsx", use_container_width=True)
+        st.download_button("📥 Reporte Excel", preparar_excel(df), "RMA_Report.xlsx", use_container_width=True)
 
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
-    # --- TABLA ---
+    # --- 6. TABLA PRINCIPAL ---
     es_admin = st.session_state['rol'] == 'admin'
-    
     config = {
         "id": None, 
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
@@ -141,21 +146,25 @@ if not df.empty:
         "enviado": st.column_config.SelectboxColumn("Enviado", options=["NO", "YES"])
     }
 
-    st.markdown("### 📋 Listado de Equipos")
+    st.markdown("### 📋 Listado Actual")
     df_editado = st.data_editor(
         df_f,
         column_config=config,
         use_container_width=True,
         hide_index=True,
-        disabled=not es_admin  # Solo Admin edita directamente
+        disabled=not es_admin  # Bloqueo de edición directa para User
     )
 
-    # ACCIONES ADMIN (Guardar/Borrar tabla)
+    # ACCIONES PARA ADMIN (Edición rápida)
     if es_admin:
         col_s, col_b, _ = st.columns([1, 1, 2])
         if col_s.button("💾 GUARDAR CAMBIOS TABLA"):
             for _, row in df_editado.iterrows():
-                upd = {"rma_number": row['rma_number'], "informacion": row['informacion'], "enviado": row['enviado']}
+                upd = {
+                    "rma_number": row['rma_number'], "informacion": row['informacion'], 
+                    "enviado": row['enviado'], "comentarios": row.get('comentarios', ''),
+                    "fedex_number": row.get('fedex_number', '')
+                }
                 supabase.table("inventario_rma").update(upd).eq("id", row['id']).execute()
             st.rerun()
         
@@ -165,35 +174,46 @@ if not df.empty:
                 supabase.table("inventario_rma").delete().eq("id", id_db).execute()
             st.rerun()
 
-    # --- MODO DE MODIFICACIÓN PARA USER (MANERA ANTERIOR) ---
+    # --- 7. MODIFICACIÓN MANUAL (Accesible para User y Admin vía ID Amigable) ---
     st.markdown("---")
-    with st.expander("🛠️ Modificar Registro Existente (Modo Manual)"):
-        col_sel, col_form = st.columns([1, 2])
+    with st.expander("🛠️ Modificar Registro por Nº"):
+        col_id, col_form = st.columns([1, 3])
         
-        # 1. Seleccionar el RMA a editar
-        lista_rmas = df['rma_number'].tolist()
-        rma_a_editar = col_sel.selectbox("Seleccione RMA para modificar:", ["Seleccionar..."] + lista_rmas)
+        # Seleccionar por ID Amigable (Nº)
+        ids_disponibles = sorted(df['id_amigable'].tolist(), reverse=True)
+        id_sel = col_id.selectbox("Seleccione Nº de Registro:", ["---"] + [str(i) for i in ids_disponibles])
         
-        if rma_a_editar != "Seleccionar...":
-            # Obtener datos actuales
-            item = df[df['rma_number'] == rma_a_editar].iloc[0]
+        if id_sel != "---":
+            # Buscamos la fila que corresponde a ese ID Amigable
+            item = df[df['id_amigable'] == int(id_sel)].iloc[0]
             
-            with col_form.form("edit_manual"):
-                m_ticket = st.text_input("Ticket", value=str(item.get('n_ticket', '')))
-                m_emp = st.text_input("Empresa", value=item['empresa'])
-                m_mod = st.text_input("Modelo", value=item['modelo'])
-                m_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"], 
+            with col_form.form("edit_manual_form"):
+                e1, e2 = st.columns(2)
+                m_rma = e1.text_input("Número RMA", value=item['rma_number'])
+                m_ticket = e2.text_input("Nº Ticket", value=str(item.get('n_ticket', '')))
+                
+                e3, e4 = st.columns(2)
+                m_emp = e3.text_input("Empresa", value=item['empresa'])
+                m_mod = e4.text_input("Modelo", value=item['modelo'])
+                
+                m_desc = st.text_area("Descripción/Partes", value=str(item.get('descripcion', '')))
+                
+                e5, e6 = st.columns(2)
+                m_est = e5.selectbox("Estado", ["En proceso", "FINALIZADO"], 
                                    index=0 if item['informacion'] == "En proceso" else 1)
-                m_env = st.selectbox("Enviado", ["NO", "YES"], 
+                m_env = e6.selectbox("Enviado", ["NO", "YES"], 
                                    index=0 if item['enviado'] == "NO" else 1)
                 
-                if st.form_submit_button("ACTUALIZAR DATOS"):
+                m_com = st.text_area("Comentarios / Notas", value=str(item.get('comentarios', '')))
+                
+                if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {id_sel}"):
                     upd_data = {
-                        "n_ticket": m_ticket, "empresa": m_emp, 
-                        "modelo": m_mod, "informacion": m_est, "enviado": m_env
+                        "rma_number": m_rma, "n_ticket": m_ticket, "empresa": m_emp, 
+                        "modelo": m_mod, "descripcion": m_desc, "informacion": m_est, 
+                        "enviado": m_env, "comentarios": m_com
                     }
                     supabase.table("inventario_rma").update(upd_data).eq("id", item['id']).execute()
-                    st.success(f"RMA {rma_a_editar} actualizado correctamente.")
+                    st.success(f"Registro Nº {id_sel} actualizado correctamente.")
                     st.rerun()
 else:
-    st.info("No hay datos.")
+    st.info("No hay datos registrados aún.")
