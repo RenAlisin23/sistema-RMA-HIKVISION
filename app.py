@@ -3,7 +3,7 @@ from supabase import create_client
 import pandas as pd
 import io
 
-# 1. CONFIGURACIÓN Y ESTILO (SE MANTIENE IGUAL)
+# 1. CONFIGURACIÓN Y ESTILO
 st.set_page_config(page_title="RMA Hikvision", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -17,7 +17,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. LOGIN (SE MANTIENE IGUAL)
+# 2. LOGIN
 if 'autenticado' not in st.session_state:
     st.session_state.update({'autenticado': False, 'rol': None})
 
@@ -42,14 +42,14 @@ if not st.session_state['autenticado']:
     pantalla_login()
     st.stop()
 
-# 3. CONEXIÓN DB (SE MANTIENE IGUAL)
+# 3. CONEXIÓN DB
 @st.cache_resource
 def init_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 supabase = init_db()
 
-# 4. SIDEBAR - REGISTRO (SE MANTIENE IGUAL)
+# 4. SIDEBAR - REGISTRO
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.divider()
@@ -59,15 +59,24 @@ with st.sidebar:
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
+        f_des = st.text_input("Partes pedidas") # Tu nuevo campo
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
         f_env = st.selectbox("Enviado", ["NO", "YES"])
         f_com = st.text_area("Comentarios")
+        
         if st.form_submit_button("GUARDAR REGISTRO", use_container_width=True):
             if f_rma and f_emp:
                 try:
+                    # CORRECCIÓN: Se añadió la coma que faltaba después de f_com
                     supabase.table("inventario_rma").insert({
-                        "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
-                        "serial_number": f_sn, "informacion": f_est, "enviado": f_env, "comentarios": f_com
+                        "rma_number": f_rma, 
+                        "empresa": f_emp, 
+                        "modelo": f_mod, 
+                        "serial_number": f_sn, 
+                        "informacion": f_est, 
+                        "enviado": f_env, 
+                        "comentarios": f_com, 
+                        "descripcion": f_des
                     }).execute()
                     st.toast("✅ Registrado con éxito")
                     st.rerun()
@@ -88,11 +97,10 @@ try:
     df_raw = pd.DataFrame(res.data)
 
     if not df_raw.empty:
-        # --- CAMBIO 1: ID A LA IZQUIERDA ---
         df_view = df_raw.copy()
         df_view['Nº'] = range(len(df_view), 0, -1)
         
-        # Reordenamos columnas para que Nº sea la primera visible
+        # Orden de columnas
         cols = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'fedex_number', 'descripcion', 'id']
         df_view = df_view[cols]
 
@@ -107,7 +115,7 @@ try:
         if es_admin:
             df_view.insert(0, "Sel", False)
         
-        # --- CAMBIO 2: MEJORA DE CABEZALES ---
+        # --- CABEZALES ACTUALIZADOS ---
         config = {
             "id": None,
             "Sel": st.column_config.CheckboxColumn("🗑️"),
@@ -121,14 +129,14 @@ try:
             "enviado_vis": st.column_config.SelectboxColumn("🚚 ENVÍO", options=["🔴 NO", "🟢 YES"]),
             "comentarios": st.column_config.TextColumn("📝 COMENT."),
             "fedex_number": st.column_config.TextColumn("🛣️ FEDEX"),
-            "descripcion": st.column_config.TextColumn("🔍 TÉCNICO"),
+            "descripcion": st.column_config.TextColumn("🔍 PARTES PEDIDAS"), # Etiqueta actualizada
         }
 
         edited_df = st.data_editor(df_view, column_config=config, use_container_width=True, hide_index=True, disabled=not es_admin)
 
         if es_admin:
             c1, c2, _ = st.columns([1, 1, 2])
-            if c1.button("💾 GUARDAR CAMBIOS TABLA", use_container_width=True):
+            if c1.button("💾 GUARDAR CAMBIOS", use_container_width=True):
                 for _, row in edited_df.iterrows():
                     info_c = str(row['informacion_vis']).replace("🔴 ", "").replace("🟢 ", "")
                     env_c = str(row['enviado_vis']).replace("🔴 ", "").replace("🟢 ", "")
@@ -142,16 +150,14 @@ try:
                     supabase.table("inventario_rma").delete().eq("id", id_db).execute()
                 st.rerun()
 
-        # --- CAMBIO 3: ACTUALIZACIÓN INSTANTÁNEA ---
+        # --- EDICIÓN RÁPIDA ---
         st.divider()
         st.subheader("📝 Edición Rápida")
         
-        # Selectbox fuera del form para que la carga de datos sea inmediata
         col_id, _ = st.columns([1, 3])
         with col_id:
             num_amigable = st.selectbox("Seleccione ID a editar", df_view['Nº'].tolist())
         
-        # Buscamos la fila seleccionada
         fila_sel = df_view[df_view['Nº'] == num_amigable].iloc[0]
         
         with st.form("form_manual_fast"):
@@ -163,7 +169,8 @@ try:
             with c_fdx:
                 n_fedex = st.text_input("FedEx / Guía", value=fila_sel.get('fedex_number', ""))
 
-            n_desc = st.text_area("Descripción Técnica", value=fila_sel.get('descripcion', ""))
+            # Etiqueta actualizada para reflejar "Partes pedidas"
+            n_desc = st.text_area("Partes pedidas / Detalle Técnico", value=fila_sel.get('descripcion', ""))
             n_com = st.text_area("Comentarios", value=fila_sel.get('comentarios', ""))
 
             if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {num_amigable}", use_container_width=True):
