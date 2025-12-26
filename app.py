@@ -1,3 +1,4 @@
+
 import streamlit as st
 from supabase import create_client
 import pandas as pd
@@ -5,7 +6,7 @@ from datetime import datetime
 import io
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="RMA Hikvision", layout="wide", page_icon="📦")
+st.set_page_config(page_title="RMA System", layout="wide", page_icon="📦")
 
 # 2. DISEÑO CSS (Estilo oscuro y rojo, sin logos)
 st.markdown("""
@@ -29,6 +30,11 @@ st.markdown("""
         width: 100%;
     }
     .stButton>button:hover { background: #eb1c24; }
+    /* Estilo para el botón de eliminar (más brillante) */
+    .stButton.delete-btn>button {
+        background: #ff4b4b;
+        border: 1px solid white !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -37,11 +43,10 @@ if 'autenticado' not in st.session_state:
     st.session_state.update({'autenticado': False, 'rol': None})
 
 def pantalla_login():
-    st.markdown("<h2 style='text-align: center;'> Acceso al Sistema  RMA</h2>", unsafe_allow_html=True)
+    st.markdown("<br><h2 style='text-align: center; color: #eb1c24 !important;'>SISTEMA DE GESTIÓN RMA</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=350)
-        st.markdown("Logeate para ingresar")
+        st.markdown("<p style='text-align: center;'>Ingrese sus credenciales</p>", unsafe_allow_html=True)
         with st.form("login"):
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
@@ -59,7 +64,7 @@ if not st.session_state['autenticado']:
     pantalla_login()
     st.stop()
 
-# 4. CONEXIÓN Y EXCEL
+# 4. CONEXIÓN Y UTILIDADES
 @st.cache_resource
 def init_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
@@ -68,8 +73,13 @@ supabase = init_db()
 
 def to_excel(df):
     output = io.BytesIO()
+    # Limpiamos la columna de selección antes de exportar
+    df_export = df.copy()
+    if 'Seleccionar' in df_export.columns:
+        df_export = df_export.drop(columns=['Seleccionar'])
+    
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='RMA_Report')
+        df_export.to_excel(writer, index=False, sheet_name='RMA_Report')
     return output.getvalue()
 
 # 5. REGISTRO (SIDEBAR)
@@ -110,9 +120,10 @@ try:
     df_raw = pd.DataFrame(res.data) if res.data else pd.DataFrame()
     
     if not df_raw.empty:
-        # --- LIMPIEZA DE FECHA ---
-        # Convertimos a solo fecha (YYYY-MM-DD) para eliminar el timestamp y el -05:00
         df_raw['fecha_registro'] = pd.to_datetime(df_raw['fecha_registro']).dt.date
+        # --- NUEVO: Añadimos columna de selección si es admin ---
+        if st.session_state['rol'] == 'admin':
+            df_raw.insert(0, 'Seleccionar', False)
         df = df_raw
     else:
         df = pd.DataFrame()
@@ -126,58 +137,76 @@ if not df.empty:
     c2.metric("EN PROCESO", len(df[df['informacion'] == 'En proceso']))
     c3.metric("FINALIZADOS", len(df[df['informacion'] == 'FINALIZADO']))
 
-    # ELIMINACIÓN (Solo para Admin)
-    if st.session_state['rol'] == 'admin':
-        with st.expander("🗑️ Zona de Administrador (Eliminar)"):
-            id_a_borrar = st.selectbox("ID del registro a borrar:", df['id'].tolist())
-            if st.button("ELIMINAR REGISTRO"):
-                supabase.table("inventario_rma").delete().eq("id", id_a_borrar).execute()
-                st.warning(f"Registro {id_a_borrar} eliminado.")
-                st.rerun()
-
     # DESCARGA EXCEL
     st.download_button(
-        label="📥 Descargar Reporte en Excel (.xlsx)",
+        label="📥 Descargar Reporte (.xlsx)",
         data=to_excel(df),
-        file_name=f"RMA_Hikvision_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        file_name=f"RMA_Report_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
     st.markdown("---")
 
-    # 7. TABLA EDITABLE
-    st.subheader("📝 Edición Directa")
-    st.caption("Nota: La fecha de registro y el ID están bloqueados para edición.")
-
-    # Filtro rápido
+    # 7. TABLA EDITABLE Y ELIMINACIÓN POR SELECCIÓN
+    st.subheader("Tabla de Gestión")
+    if st.session_state['rol'] == 'admin':
+        st.caption("Admin: Seleccione los registros con el cuadro de la izquierda para eliminar en lote.")
+    
     busq = st.text_input("🔍 Buscar...", placeholder="RMA, Empresa, S/N...")
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
+
+    # Configuramos el editor
+    config_columnas = {
+        "id": st.column_config.TextColumn("ID", disabled=True),
+        "fecha_registro": st.column_config.DateColumn("Fecha Registro", disabled=True, format="DD/MM/YYYY"),
+        "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
+        "enviado": st.column_config.SelectboxColumn("Enviado", options=["NO", "YES"])
+    }
+    
+    # Si es admin, habilitamos la columna "Seleccionar"
+    if st.session_state['rol'] == 'admin':
+        config_columnas["Seleccionar"] = st.column_config.CheckboxColumn("Seleccionar", default=False)
 
     df_editado = st.data_editor(
         df_f,
         use_container_width=True,
         hide_index=True,
-        column_config={
-            "id": st.column_config.TextColumn("ID", disabled=True),
-            "fecha_registro": st.column_config.DateColumn("Fecha Registro", disabled=True, format="DD/MM/YYYY"),
-            "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
-            "enviado": st.column_config.SelectboxColumn("Enviado", options=["NO", "YES"])
-        },
-        disabled=["id", "fecha_registro"] 
+        column_config=config_columnas,
+        disabled=["id", "fecha_registro"]
     )
 
-    if st.button("💾 GUARDAR CAMBIOS DE LA TABLA"):
-        for _, row in df_editado.iterrows():
-            upd_data = {
-                "rma_number": row['rma_number'], "n_ticket": row['n_ticket'],
-                "n_rq": row['n_rq'], "empresa": row['empresa'],
-                "modelo": row['modelo'], "serial_number": row['serial_number'],
-                "informacion": row['informacion'], "enviado": row['enviado'],
-                "comentarios": row['comentarios'], "fedex_number": row.get('fedex_number', '')
-            }
-            supabase.table("inventario_rma").update(upd_data).eq("id", row['id']).execute()
-        st.success("Base de datos actualizada.")
-        st.rerun()
+    # BOTONES DE ACCIÓN
+    col_save, col_del = st.columns([1, 1])
+
+    with col_save:
+        if st.button("💾 GUARDAR CAMBIOS"):
+            for _, row in df_editado.iterrows():
+                # No enviamos 'Seleccionar' a la DB
+                upd_data = {
+                    "rma_number": row['rma_number'], "n_ticket": row['n_ticket'],
+                    "n_rq": row['n_rq'], "empresa": row['empresa'],
+                    "modelo": row['modelo'], "serial_number": row['serial_number'],
+                    "informacion": row['informacion'], "enviado": row['enviado'],
+                    "comentarios": row['comentarios'], "fedex_number": row.get('fedex_number', '')
+                }
+                supabase.table("inventario_rma").update(upd_data).eq("id", row['id']).execute()
+            st.success("Base de datos actualizada.")
+            st.rerun()
+
+    # Botón de eliminar solo para Admin
+    if st.session_state['rol'] == 'admin':
+        with col_del:
+            # Filtramos cuáles están marcados para eliminar
+            seleccionados = df_editado[df_editado['Seleccionar'] == True]
+            if not seleccionados.empty:
+                st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+                if st.button(f"🗑️ ELIMINAR {len(seleccionados)} REGISTROS"):
+                    ids_a_borrar = seleccionados['id'].tolist()
+                    for id_b in ids_a_borrar:
+                        supabase.table("inventario_rma").delete().eq("id", id_b).execute()
+                    st.warning("Registros eliminados correctamente.")
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.info("No hay registros en la base de datos.")
