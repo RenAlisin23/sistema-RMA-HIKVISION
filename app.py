@@ -188,6 +188,7 @@ if not df.empty:
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
         "fecha_registro": st.column_config.DateColumn("Fecha Ingreso", disabled=True),
         "rma_number": "Número RMA",
+        "n_rq": "RQ",
         "n_ticket": "Ticket",
         "empresa": "Empresa",
         "modelo": "Modelo",
