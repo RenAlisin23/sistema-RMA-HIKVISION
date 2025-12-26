@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="RMA Hikvision Control", layout="wide", page_icon="📦")
+st.set_page_config(page_title="RMA Hikvision", layout="wide", page_icon="📦")
 
 # 2. DISEÑO CSS PARA BLINDAR LA APP
 st.markdown("""
@@ -73,7 +73,7 @@ def init_db():
 
 supabase = init_db()
 
-# 5. BARRA LATERAL (REGISTRO COMPLETO)
+# 5. Registro para nuevas partes
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.markdown("### ➕ Registrar RMA")
