@@ -56,7 +56,7 @@ with st.sidebar:
         f_sn  = st.text_input("S/N")
         # GUARDAMOS TEXTO PLANO EN LA DB PARA QUE NO HAYA ERRORES
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
-        f_env = st.selectbox("Enviado", ["NO", "SI"])
+        f_env = st.selectbox("Enviado", ["NO", "YES"])
         f_com = st.text_area("Comentarios")
         if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
@@ -100,7 +100,7 @@ try:
             "Sel": st.column_config.CheckboxColumn("🗑️"),
             "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
             "informacion": st.column_config.SelectboxColumn("Estado", options=["🔴 En proceso", "🟢 FINALIZADO"]),
-            "enviado": st.column_config.SelectboxColumn("Enviado", options=["🔴 NO", "🟢 SI"]),
+            "enviado": st.column_config.SelectboxColumn("Enviado", options=["🔴 NO", "🟢 YES"]),
         }
 
         edited_df = st.data_editor(df_view, column_config=config, use_container_width=True, hide_index=True, disabled=not es_admin)
