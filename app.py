@@ -131,7 +131,7 @@ try:
         # Lógica de guardado masivo para Admin
         if es_admin:
             c1, c2, c3 = st.columns([1, 1, 2])
-            if c1.button("💾 GUARDAR CAMBIOS TABLA", use_container_width=True):
+            if c1.button("💾 GUARDAR CAMBIOS", use_container_width=True):
                 for _, row in edited_df.iterrows():
                     info_clean = row['informacion_vis'].replace("🔴 ", "").replace("🟢 ", "")
                     env_clean = row['enviado_vis'].replace("🔴 ", "").replace("🟢 ", "")
