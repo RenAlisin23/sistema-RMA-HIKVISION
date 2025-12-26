@@ -94,7 +94,6 @@ try:
         df_view = df_raw.copy()
         df_view['Nº'] = range(len(df_view), 0, -1)
         
-        # Orden de columnas para vista
         cols = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'fedex_number', 'descripcion', 'id']
         df_view = df_view[cols]
 
@@ -110,8 +109,7 @@ try:
             df_view.insert(0, "Sel", False)
         
         config = {
-            "id": None,
-            "Sel": st.column_config.CheckboxColumn("🗑️"),
+            "id": None, "Sel": st.column_config.CheckboxColumn("🗑️"),
             "Nº": st.column_config.NumberColumn("🆔 ID", format="%d"),
             "fecha_registro": st.column_config.TextColumn("📅 FECHA", disabled=True),
             "rma_number": st.column_config.TextColumn("📄 RMA"),
@@ -127,7 +125,6 @@ try:
 
         edited_df = st.data_editor(df_view, column_config=config, use_container_width=True, hide_index=True, disabled=not es_admin)
 
-        # Acciones de Administrador (Incluye Exportación a Excel)
         if es_admin:
             c1, c2, c3 = st.columns([1, 1, 1])
             
@@ -147,34 +144,44 @@ try:
                     supabase.table("inventario_rma").delete().eq("id", id_db).execute()
                 st.rerun()
 
-            # --- LÓGICA DE EXCEL BIEN HECHO ---
+            # --- LÓGICA DE EXCEL "BIEN HECHECITO" ---
             buffer = io.BytesIO()
             df_export = df_raw.copy()
-            # Seleccionamos y renombramos columnas para un Excel profesional
             df_export = df_export[['fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'fedex_number', 'descripcion', 'comentarios']]
-            df_export.columns = ['Fecha', 'Nº RMA', 'Empresa', 'Modelo', 'Serial Number', 'Estado', 'Enviado', 'Guía FedEx', 'Partes Pedidas', 'Comentarios']
+            df_export.columns = ['FECHA INGRESO', 'Nº RMA', 'EMPRESA/CLIENTE', 'MODELO', 'SERIAL NUMBER', 'ESTADO ACTUAL', 'ENVIADO', 'GUÍA FEDEX', 'PARTES PEDIDAS', 'COMENTARIOS']
             
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                df_export.to_excel(writer, index=False, sheet_name='Reporte RMA')
-            
-            c3.download_button(
-                label="📥 DESCARGAR EXCEL",
-                data=buffer.getvalue(),
-                file_name="inventario_rma_hikvision.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+                df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
+                workbook  = writer.book
+                worksheet = writer.sheets['Reporte_RMA']
 
-        # --- EDICIÓN RÁPIDA (REACCIONA AL CAMBIAR ID) ---
+                # Formatos personalizados
+                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#30363d', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                cell_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True})
+
+                # Aplicar anchos de columna (Espaciado profesional)
+                worksheet.set_column('A:A', 20, cell_fmt) # Fecha
+                worksheet.set_column('B:B', 15, cell_fmt) # RMA
+                worksheet.set_column('C:C', 30, cell_fmt) # Empresa
+                worksheet.set_column('D:E', 25, cell_fmt) # Modelo y Serial
+                worksheet.set_column('F:G', 15, cell_fmt) # Estado y Enviado
+                worksheet.set_column('H:H', 20, cell_fmt) # FedEx
+                worksheet.set_column('I:J', 45, cell_fmt) # Partes y Comentarios (más ancho)
+
+                # Aplicar formato al encabezado
+                for col_num, value in enumerate(df_export.columns.values):
+                    worksheet.write(0, col_num, value, header_fmt)
+
+            c3.download_button(label="📥 DESCARGAR EXCEL", data=buffer.getvalue(), file_name="RMA_Hikvision_Reporte.xlsx", use_container_width=True)
+
+        # --- EDICIÓN RÁPIDA ---
         st.divider()
         st.subheader("📝 Edición Rápida")
-        
         col_id, _ = st.columns([1, 3])
         with col_id:
             num_amigable = st.selectbox("Seleccione ID a editar", df_view['Nº'].tolist())
         
         fila_sel = df_view[df_view['Nº'] == num_amigable].iloc[0]
-        
         with st.form("form_manual_fast"):
             c_est, c_env, c_fdx = st.columns([1, 1, 1])
             with c_est:
@@ -188,14 +195,10 @@ try:
             n_com = st.text_area("Comentarios", value=fila_sel.get('comentarios', "") if fila_sel.get('comentarios') else "")
 
             if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {num_amigable}", use_container_width=True):
-                supabase.table("inventario_rma").update({
-                    "informacion": n_est, "enviado": n_env, "comentarios": n_com, 
-                    "fedex_number": n_fedex, "descripcion": n_desc
-                }).eq("id", fila_sel['id']).execute()
-                st.success(f"Nº {num_amigable} actualizado")
-                st.rerun()
+                supabase.table("inventario_rma").update({"informacion": n_est, "enviado": n_env, "comentarios": n_com, "fedex_number": n_fedex, "descripcion": n_desc}).eq("id", fila_sel['id']).execute()
+                st.success(f"Nº {num_amigable} actualizado"); st.rerun()
 
     else:
-        st.info("No hay registros en la base de datos.")
+        st.info("No hay registros.")
 except Exception as e:
     st.error(f"Error: {e}")
