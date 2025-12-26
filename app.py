@@ -3,12 +3,19 @@ from supabase import create_client
 import pandas as pd
 import io
 
-# 1. CONFIGURACIÓN Y ESTILO
+# 1. CONFIGURACIÓN Y ESTILO (CORREGIDO PARA NO PERDER LA FLECHA DEL SIDEBAR)
 st.set_page_config(page_title="RMA Hikvision", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    header, footer, .stDeployButton, #MainMenu { visibility: hidden; display: none !important; }
+    /* Escondemos el botón de 'Deploy' y el menú de tres puntos, pero NO el header completo */
+    .stDeployButton { display: none !important; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    
+    /* Mantenemos el header pero transparente para que no estorbe, así la flecha sigue ahí */
+    header { background-color: rgba(0,0,0,0) !important; }
+
     .stApp { background-color: #0d1117; color: #e6edf3; }
     [data-testid="stSidebar"] { background-color: #010409; border-right: 1px solid #30363d; }
     .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
