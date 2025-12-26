@@ -59,7 +59,7 @@ with st.sidebar:
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
-        f_des = st.text_input("Partes pedidas") # Tu nuevo campo
+        f_des = st.text_input("Partes pedidas")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
         f_env = st.selectbox("Enviado", ["NO", "YES"])
         f_com = st.text_area("Comentarios")
@@ -67,16 +67,10 @@ with st.sidebar:
         if st.form_submit_button("GUARDAR REGISTRO", use_container_width=True):
             if f_rma and f_emp:
                 try:
-                    # CORRECCIÓN: Se añadió la coma que faltaba después de f_com
                     supabase.table("inventario_rma").insert({
-                        "rma_number": f_rma, 
-                        "empresa": f_emp, 
-                        "modelo": f_mod, 
-                        "serial_number": f_sn, 
-                        "informacion": f_est, 
-                        "enviado": f_env, 
-                        "comentarios": f_com, 
-                        "descripcion": f_des
+                        "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
+                        "serial_number": f_sn, "informacion": f_est, "enviado": f_env, 
+                        "comentarios": f_com, "descripcion": f_des
                     }).execute()
                     st.toast("✅ Registrado con éxito")
                     st.rerun()
@@ -100,7 +94,7 @@ try:
         df_view = df_raw.copy()
         df_view['Nº'] = range(len(df_view), 0, -1)
         
-        # Orden de columnas
+        # Orden de columnas para vista
         cols = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'fedex_number', 'descripcion', 'id']
         df_view = df_view[cols]
 
@@ -115,7 +109,6 @@ try:
         if es_admin:
             df_view.insert(0, "Sel", False)
         
-        # --- CABEZALES ACTUALIZADOS ---
         config = {
             "id": None,
             "Sel": st.column_config.CheckboxColumn("🗑️"),
@@ -129,28 +122,50 @@ try:
             "enviado_vis": st.column_config.SelectboxColumn("🚚 ENVÍO", options=["🔴 NO", "🟢 YES"]),
             "comentarios": st.column_config.TextColumn("📝 COMENT."),
             "fedex_number": st.column_config.TextColumn("🛣️ FEDEX"),
-            "descripcion": st.column_config.TextColumn("🔍 PARTES PEDIDAS"), # Etiqueta actualizada
+            "descripcion": st.column_config.TextColumn("🔍 PARTES PEDIDAS"),
         }
 
         edited_df = st.data_editor(df_view, column_config=config, use_container_width=True, hide_index=True, disabled=not es_admin)
 
+        # Acciones de Administrador (Incluye Exportación a Excel)
         if es_admin:
-            c1, c2, _ = st.columns([1, 1, 2])
+            c1, c2, c3 = st.columns([1, 1, 1])
+            
             if c1.button("💾 GUARDAR CAMBIOS", use_container_width=True):
                 for _, row in edited_df.iterrows():
                     info_c = str(row['informacion_vis']).replace("🔴 ", "").replace("🟢 ", "")
                     env_c = str(row['enviado_vis']).replace("🔴 ", "").replace("🟢 ", "")
                     supabase.table("inventario_rma").update({
                         "informacion": info_c, "enviado": env_c, "comentarios": row['comentarios'], 
-                        "rma_number": row['rma_number'], "fedex_number": row.get('fedex_number',""), "descripcion": row.get('descripcion',"")
+                        "rma_number": row['rma_number'], "fedex_number": row.get('fedex_number',""), 
+                        "descripcion": row.get('descripcion',"")
                     }).eq("id", row['id']).execute()
                 st.rerun()
-            if c2.button("ELIMINAR SELECCIÓN", use_container_width=True):
+
+            if c2.button("🗑️ ELIMINAR SELECCIÓN", use_container_width=True):
                 for id_db in edited_df[edited_df["Sel"] == True]['id'].tolist():
                     supabase.table("inventario_rma").delete().eq("id", id_db).execute()
                 st.rerun()
 
-        # --- EDICIÓN RÁPIDA ---
+            # --- LÓGICA DE EXCEL BIEN HECHO ---
+            buffer = io.BytesIO()
+            df_export = df_raw.copy()
+            # Seleccionamos y renombramos columnas para un Excel profesional
+            df_export = df_export[['fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'fedex_number', 'descripcion', 'comentarios']]
+            df_export.columns = ['Fecha', 'Nº RMA', 'Empresa', 'Modelo', 'Serial Number', 'Estado', 'Enviado', 'Guía FedEx', 'Partes Pedidas', 'Comentarios']
+            
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df_export.to_excel(writer, index=False, sheet_name='Reporte RMA')
+            
+            c3.download_button(
+                label="📥 DESCARGAR EXCEL",
+                data=buffer.getvalue(),
+                file_name="inventario_rma_hikvision.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+        # --- EDICIÓN RÁPIDA (REACCIONA AL CAMBIAR ID) ---
         st.divider()
         st.subheader("📝 Edición Rápida")
         
@@ -167,11 +182,10 @@ try:
             with c_env:
                 n_env = st.selectbox("Enviado", ["NO", "YES"], index=0 if fila_sel['enviado'] == "NO" else 1)
             with c_fdx:
-                n_fedex = st.text_input("FedEx / Guía", value=fila_sel.get('fedex_number', ""))
+                n_fedex = st.text_input("FedEx / Guía", value=fila_sel.get('fedex_number', "") if fila_sel.get('fedex_number') else "")
 
-            # Etiqueta actualizada para reflejar "Partes pedidas"
-            n_desc = st.text_area("Partes pedidas / Detalle Técnico", value=fila_sel.get('descripcion', ""))
-            n_com = st.text_area("Comentarios", value=fila_sel.get('comentarios', ""))
+            n_desc = st.text_area("Partes pedidas / Detalle Técnico", value=fila_sel.get('descripcion', "") if fila_sel.get('descripcion') else "")
+            n_com = st.text_area("Comentarios", value=fila_sel.get('comentarios', "") if fila_sel.get('comentarios') else "")
 
             if st.form_submit_button(f"ACTUALIZAR REGISTRO Nº {num_amigable}", use_container_width=True):
                 supabase.table("inventario_rma").update({
@@ -182,6 +196,6 @@ try:
                 st.rerun()
 
     else:
-        st.info("No hay registros.")
+        st.info("No hay registros en la base de datos.")
 except Exception as e:
     st.error(f"Error: {e}")
