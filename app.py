@@ -13,28 +13,21 @@ st.markdown("""
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
     .stApp { background-color: #0d1117; color: #e6edf3; }
-    
-    /* Estilo de Tarjetas de Métricas */
     [data-testid="stMetric"] {
         background-color: #161b22;
         border: 1px solid #30363d;
         border-radius: 8px;
         padding: 15px !important;
     }
-    
-    /* Estilo de la Sidebar */
     [data-testid="stSidebar"] {
         background-color: #010409;
         border-right: 1px solid #30363d;
     }
-
-    /* Botones Profesionales */
     .stButton>button {
         background-color: #21262d;
         color: #c9d1d9;
         border: 1px solid #30363d;
         border-radius: 6px;
-        font-weight: 500;
     }
     .stButton>button:hover {
         border-color: #eb1c24;
@@ -43,7 +36,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. CONEXIÓN Y LOGIN
+# 3. LOGIN Y CONEXIÓN
 if 'autenticado' not in st.session_state:
     st.session_state.update({'autenticado': False, 'rol': None})
 
@@ -51,18 +44,18 @@ def pantalla_login():
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=280)
-        st.markdown("<h2 style='text-align: center;'>Portal de Gestión RMA</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Portal RMA Professional</h2>", unsafe_allow_html=True)
         with st.form("login"):
             u = st.text_input("Usuario")
             p = st.text_input("Contraseña", type="password")
-            if st.form_submit_button("INICIAR SESIÓN"):
+            if st.form_submit_button("ACCEDER"):
                 if u == "admin" and p == "Hik13579":
                     st.session_state.update({'autenticado': True, 'rol': 'admin'})
                     st.rerun()
                 elif u == "user" and p == "Hik12345":
                     st.session_state.update({'autenticado': True, 'rol': 'user'})
                     st.rerun()
-                else: st.error("Credenciales incorrectas")
+                else: st.error("Credenciales inválidas")
 
 if not st.session_state['autenticado']:
     pantalla_login()
@@ -74,56 +67,80 @@ def init_db():
 
 supabase = init_db()
 
-def preparar_excel(df):
-    # Solo exportamos datos útiles para el reporte
-    columnas_basura = ['id', 'id_amigable', 'Seleccionar']
-    df_clean = df.drop(columns=[c for c in columnas_basura if c in df.columns])
+# --- 4. FUNCIÓN DE EXCEL ULTRA PROFESIONAL ---
+def preparar_excel(df_input):
+    # Seleccionamos y reordenamos columnas (Nº primero)
+    # Quitamos el 'id' técnico de base de datos
+    df_export = df_input.copy()
     
-    # Renombrar columnas para el Excel Profesional
-    renombrar_excel = {
-        "rma_number": "RMA", "n_ticket": "Ticket", "n_rq": "RQ",
-        "empresa": "Empresa", "modelo": "Modelo", "serial_number": "S/N",
-        "informacion": "Estado", "enviado": "Enviado", "comentarios": "Comentarios"
+    # Mapeo de nombres técnicos a nombres reales para el reporte
+    columnas_reporte = {
+        "id_amigable": "Nº",
+        "fecha_registro": "Fecha de Ingreso",
+        "rma_number": "Número RMA",
+        "n_ticket": "Ticket",
+        "n_rq": "RQ",
+        "empresa": "Empresa / Cliente",
+        "modelo": "Modelo",
+        "serial_number": "S/N",
+        "informacion": "Estado",
+        "enviado": "Enviado",
+        "fedex_number": "Guía Fedex",
+        "comentarios": "Observaciones"
     }
-    df_clean = df_clean.rename(columns=renombrar_excel)
+    
+    # Filtrar solo las que existen y reordenar poniendo 'id_amigable' al inicio
+    cols_existentes = [c for c in columnas_reporte.keys() if c in df_export.columns]
+    df_export = df_export[cols_existentes].rename(columns=columnas_reporte)
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_clean.to_excel(writer, index=False, sheet_name='Reporte_RMA')
+        df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
+        
+        workbook  = writer.book
+        worksheet = writer.sheets['Reporte_RMA']
+
+        # FORMATOS
+        header_format = workbook.add_format({
+            'bold': True, 'text_wrap': True, 'valign': 'middle', 'fg_color': '#D3D3D3', 'border': 1
+        })
+        cell_format = workbook.add_format({'valign': 'middle', 'border': 1})
+        num_format = workbook.add_format({'align': 'center', 'valign': 'middle', 'border': 1})
+
+        # Aplicar anchos automáticos y formatos
+        for i, col in enumerate(df_export.columns):
+            # Ancho basado en el largo del texto del encabezado o contenido
+            column_len = max(df_export[col].astype(str).map(len).max(), len(col)) + 5
+            worksheet.set_column(i, i, column_len, cell_format if i > 0 else num_format)
+            worksheet.write(0, i, col, header_format)
+
     return output.getvalue()
 
-# 4. SIDEBAR (Registro)
+# 5. SIDEBAR
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=140)
-    st.markdown(f"**Usuario:** `{st.session_state['rol'].upper()}`")
-    
-    with st.form("nuevo_registro"):
-        st.markdown("### 📝 Registrar Equipo")
+    st.markdown(f"**Sesión:** `{st.session_state['rol'].upper()}`")
+    with st.form("reg"):
+        st.markdown("### ➕ Registrar")
         f_rma = st.text_input("Número RMA")
-        f_ticket = st.text_input("Ticket")
-        f_rq = st.text_input("RQ")
-        f_emp = st.text_input("Empresa / Cliente")
-        f_mod = st.text_input("Modelo del Equipo")
-        f_sn  = st.text_input("Número de Serie (S/N)")
-        f_est = st.selectbox("Estado Inicial", ["En proceso", "FINALIZADO"])
-        f_com = st.text_area("Comentarios Iniciales")
-        
-        if st.form_submit_button("GUARDAR EN BASE DE DATOS"):
+        f_emp = st.text_input("Empresa")
+        f_mod = st.text_input("Modelo")
+        f_sn  = st.text_input("S/N")
+        f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
+        f_com = st.text_area("Comentarios")
+        if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
                 supabase.table("inventario_rma").insert({
-                    "rma_number": f_rma, "n_ticket": f_ticket, "n_rq": f_rq,
-                    "empresa": f_emp, "modelo": f_mod, "serial_number": f_sn, 
-                    "informacion": f_est, "comentarios": f_com, "enviado": "NO"
+                    "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
+                    "serial_number": f_sn, "informacion": f_est, "comentarios": f_com, "enviado": "NO"
                 }).execute()
-                st.success("✅ Guardado correctamente")
                 st.rerun()
-    
-    if st.button("🚪 Salir del Sistema"):
+    if st.button("🚪 Salir"):
         st.session_state.update({'autenticado': False, 'rol': None})
         st.rerun()
 
-# 5. PANEL PRINCIPAL
-st.title("📦 Control Central de Inventario")
+# 6. PANEL DE DATOS
+st.title("📦 Control de Inventario RMA")
 
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
@@ -136,109 +153,68 @@ try:
 except: df = pd.DataFrame()
 
 if not df.empty:
-    # Métricas
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Equipos Totales", len(df))
-    c2.metric("En Reparación", len(df[df['informacion'] == 'En proceso']))
-    c3.metric("Completados", len(df[df['informacion'] == 'FINALIZADO']))
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Equipos", len(df))
+    m2.metric("En Reparación", len(df[df['informacion'] == 'En proceso']))
+    m3.metric("Finalizados", len(df[df['informacion'] == 'FINALIZADO']))
 
-    # Buscador y Exportación
-    row1_1, row1_2 = st.columns([3, 1])
-    with row1_1:
-        busq = st.text_input("Filtro rápido", placeholder="🔍 Buscar por RMA, Cliente o Modelo...", label_visibility="collapsed")
-    with row1_2:
-        st.download_button("📥 Descargar Reporte (Excel)", preparar_excel(df), "RMA_Hikvision.xlsx", use_container_width=True)
+    # BUSCADOR Y EXCEL ALINEADOS
+    c_search, c_excel = st.columns([3, 1])
+    with c_search:
+        busq = st.text_input("Filtro", placeholder="🔍 Buscar...", label_visibility="collapsed")
+    with c_excel:
+        st.download_button("📥 Descargar Excel", preparar_excel(df), "Reporte_RMA_Hikvision.xlsx", use_container_width=True)
 
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
-    # --- 6. TABLA INTERACTIVA CON NOMBRES PROFESIONALES ---
-    st.markdown("### 📋 Listado de Registros")
-    
+    # TABLA INTERACTIVA
     es_admin = st.session_state['rol'] == 'admin'
-    
-    # Configuración de encabezados para humanos
-    config_visual = {
-        "id": None, # Oculto
+    config = {
+        "id": None, 
         "Seleccionar": st.column_config.CheckboxColumn("Seleccionar"),
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
-        "fecha_registro": st.column_config.DateColumn("Fecha Registro", disabled=True),
-        "rma_number": st.column_config.TextColumn("Número RMA"),
-        "n_ticket": st.column_config.TextColumn("Ticket"),
-        "n_rq": st.column_config.TextColumn("RQ"),
-        "empresa": st.column_config.TextColumn("Empresa / Cliente"),
-        "modelo": st.column_config.TextColumn("Modelo"),
-        "serial_number": st.column_config.TextColumn("S/N"),
+        "fecha_registro": st.column_config.DateColumn("Fecha", disabled=True),
+        "rma_number": "Número RMA",
+        "n_ticket": "Ticket",
+        "empresa": "Empresa",
         "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
         "enviado": st.column_config.SelectboxColumn("Enviado", options=["NO", "YES"]),
-        "comentarios": st.column_config.TextColumn("Comentarios"),
-        "fedex_number": st.column_config.TextColumn("Guía/Fedex")
+        "comentarios": "Comentarios"
     }
 
-    df_editado = st.data_editor(
-        df_f,
-        column_config=config_visual,
-        use_container_width=True,
-        hide_index=True,
-        disabled=not es_admin 
-    )
+    st.markdown("### 📋 Listado General")
+    df_editado = st.data_editor(df_f, column_config=config, use_container_width=True, hide_index=True, disabled=not es_admin)
 
     if es_admin:
-        btn_col1, btn_col2, _ = st.columns([1.2, 1.2, 3])
-        if btn_col1.button("💾 GUARDAR CAMBIOS EN TABLA"):
+        col_s, col_b, _ = st.columns([1, 1, 2])
+        if col_s.button("💾 GUARDAR CAMBIOS"):
             for _, row in df_editado.iterrows():
-                upd = {
-                    "rma_number": row['rma_number'], "n_ticket": row['n_ticket'],
-                    "informacion": row['informacion'], "enviado": row['enviado'],
-                    "comentarios": row['comentarios'], "fedex_number": row['fedex_number']
-                }
+                upd = {"rma_number": row['rma_number'], "informacion": row['informacion'], "enviado": row['enviado'], "comentarios": row['comentarios']}
                 supabase.table("inventario_rma").update(upd).eq("id", row['id']).execute()
-            st.success("Base de datos actualizada")
             st.rerun()
         
         seleccionados = df_editado[df_editado.get('Seleccionar', False) == True]
-        if not seleccionados.empty and btn_col2.button(f"🗑️ ELIMINAR ({len(seleccionados)})"):
+        if not seleccionados.empty and col_b.button(f"🗑️ BORRAR ({len(seleccionados)})"):
             for id_db in seleccionados['id'].tolist():
                 supabase.table("inventario_rma").delete().eq("id", id_db).execute()
             st.rerun()
 
-    # --- 7. MODIFICACIÓN MANUAL (Para User o Admin por ID) ---
+    # EDICIÓN MANUAL POR Nº
     st.markdown("---")
-    with st.expander("🛠️ Edición Manual por Número de Registro (Nº)"):
+    with st.expander("🛠️ Edición por Nº de Registro"):
         col_id, col_form = st.columns([1, 3])
-        
-        id_lista = sorted(df['id_amigable'].tolist(), reverse=True)
-        id_sel = col_id.selectbox("Seleccione el Nº:", ["---"] + [str(i) for i in id_lista])
+        id_sel = col_id.selectbox("Seleccione Nº:", ["---"] + sorted([str(i) for i in df['id_amigable']], reverse=True))
         
         if id_sel != "---":
-            # Extraer fila por ID amigable
             item = df[df['id_amigable'] == int(id_sel)].iloc[0]
-            
             with col_form.form("manual_edit"):
-                st.markdown(f"**Editando Registro Nº {id_sel}**")
-                m1, m2 = st.columns(2)
-                m_rma = m1.text_input("RMA", value=item['rma_number'])
-                m_tkt = m2.text_input("Ticket", value=str(item.get('n_ticket', '')))
-                
-                m3, m4 = st.columns(2)
-                m_emp = m3.text_input("Empresa", value=item['empresa'])
-                m_mod = m4.text_input("Modelo", value=item['modelo'])
-                
+                st.write(f"Editando Registro Nº {id_sel}")
+                m_rma = st.text_input("RMA", value=item['rma_number'])
+                m_emp = st.text_input("Empresa", value=item['empresa'])
+                m_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"], index=0 if item['informacion']=="En proceso" else 1)
                 m_com = st.text_area("Comentarios", value=str(item.get('comentarios', '')))
-                
-                m5, m6 = st.columns(2)
-                m_est = m5.selectbox("Estado", ["En proceso", "FINALIZADO"], 
-                                   index=0 if item['informacion'] == "En proceso" else 1)
-                m_env = m6.selectbox("¿Ya fue enviado?", ["NO", "YES"], 
-                                   index=0 if item['enviado'] == "NO" else 1)
-
-                if st.form_submit_button("ACTUALIZAR DATOS"):
-                    upd_data = {
-                        "rma_number": m_rma, "n_ticket": m_tkt, "empresa": m_emp,
-                        "modelo": m_mod, "informacion": m_est, "enviado": m_env,
-                        "comentarios": m_com
-                    }
-                    supabase.table("inventario_rma").update(upd_data).eq("id", item['id']).execute()
-                    st.success(f"Nº {id_sel} actualizado.")
+                if st.form_submit_button("ACTUALIZAR"):
+                    supabase.table("inventario_rma").update({"rma_number":m_rma, "empresa":m_emp, "informacion":m_est, "comentarios":m_com}).eq("id", item['id']).execute()
                     st.rerun()
 else:
-    st.info("No se encontraron registros en el sistema.")
+    st.info("Sistema sin registros.")
