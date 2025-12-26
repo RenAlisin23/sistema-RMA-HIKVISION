@@ -29,10 +29,7 @@ st.markdown("""
         border: 1px solid #30363d;
         border-radius: 6px;
     }
-    .stButton>button:hover {
-        border-color: #eb1c24;
-        color: #eb1c24;
-    }
+    .stButton>button:hover { border-color: #eb1c24; color: #eb1c24; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -67,56 +64,51 @@ def init_db():
 
 supabase = init_db()
 
-# --- 4. EXCEL PROFESIONAL (Nº A LA IZQUIERDA Y BIEN FORMATEADO) ---
+# --- 4. EXCEL PROFESIONAL (ORDENADO Y ESPACIADO) ---
 def preparar_excel(df_input):
-    df_export = df_input.copy()
-    
-    # Mapeo de nombres para el reporte final
-    columnas_reporte = {
-        "id_amigable": "Nº",
-        "fecha_registro": "Fecha de Ingreso",
+    # Definimos el orden exacto de las columnas para el Excel
+    columnas_finales = {
+        "id_amigable": "Nº Registro",
+        "fecha_registro": "Fecha Ingreso",
         "rma_number": "Número RMA",
         "n_ticket": "Ticket",
-        "n_rq": "RQ",
-        "empresa": "Empresa",
-        "modelo": "Modelo",
-        "serial_number": "S/N",
-        "informacion": "Estado",
-        "comentarios": "Comentarios"
+        "empresa": "Empresa / Cliente",
+        "modelo": "Modelo Equipo",
+        "serial_number": "S/N (Serie)",
+        "informacion": "Estado Actual",
+        "comentarios": "Observaciones"
     }
     
-    # Seleccionar solo las columnas necesarias en el orden correcto
-    cols_a_incluir = [c for c in columnas_reporte.keys() if c in df_export.columns]
-    df_export = df_export[cols_a_incluir].rename(columns=columnas_reporte)
+    # Filtrar solo lo que queremos mostrar y reordenar
+    df_export = df_input[[col for col in columnas_finales.keys() if col in df_input.columns]].copy()
+    df_export = df_export.rename(columns=columnas_finales)
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
-        
         workbook  = writer.book
         worksheet = writer.sheets['Reporte_RMA']
 
-        # Estilos: Encabezado Rojo Hikvision y bordes
-        header_format = workbook.add_format({
-            'bold': True, 'font_color': 'white', 'fg_color': '#eb1c24',
-            'border': 1, 'align': 'center', 'valign': 'middle'
-        })
-        cell_format = workbook.add_format({'border': 1, 'valign': 'middle'})
-        
-        # Ajustar ancho de columnas automáticamente
+        # FORMATOS
+        fmt_header = workbook.add_format({'bold': True, 'font_color': 'white', 'fg_color': '#eb1c24', 'border': 1, 'align': 'center'})
+        fmt_cells = workbook.add_format({'border': 1, 'valign': 'middle'})
+        fmt_id = workbook.add_format({'border': 1, 'align': 'center', 'bold': True, 'fg_color': '#f4f4f4'})
+
+        # Aplicar formatos y anchos
         for i, col in enumerate(df_export.columns):
-            max_len = max(df_export[col].astype(str).map(len).max(), len(col)) + 4
-            worksheet.set_column(i, i, max_len, cell_format)
-            worksheet.write(0, i, col, header_format)
+            # Ancho dinámico + margen de respiro
+            width = max(df_export[col].astype(str).map(len).max(), len(col)) + 6
+            worksheet.set_column(i, i, width, fmt_cells if i > 0 else fmt_id)
+            worksheet.write(0, i, col, fmt_header)
 
     return output.getvalue()
 
-# 5. SIDEBAR (REGISTRO)
+# 5. SIDEBAR
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=140)
     st.markdown(f"**Usuario:** `{st.session_state['rol'].upper()}`")
-    with st.form("reg_sidebar"):
-        st.markdown("### ➕ Nuevo RMA")
+    with st.form("nuevo_rma"):
+        st.markdown("### ➕ Registrar")
         f_rma = st.text_input("Número RMA")
         f_tkt = st.text_input("Ticket")
         f_emp = st.text_input("Empresa")
@@ -128,8 +120,7 @@ with st.sidebar:
             if f_rma and f_emp:
                 supabase.table("inventario_rma").insert({
                     "rma_number": f_rma, "n_ticket": f_tkt, "empresa": f_emp, 
-                    "modelo": f_mod, "serial_number": f_sn, "informacion": f_est, 
-                    "comentarios": f_com
+                    "modelo": f_mod, "serial_number": f_sn, "informacion": f_est, "comentarios": f_com
                 }).execute()
                 st.rerun()
     if st.button("🚪 Salir"):
@@ -137,17 +128,29 @@ with st.sidebar:
         st.rerun()
 
 # 6. PANEL PRINCIPAL
-st.title("📦 Control de Inventario")
+st.title("📦 Control Central de Inventario")
 
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    df = pd.DataFrame(res.data)
-    if not df.empty:
-        df['fecha_registro'] = pd.to_datetime(df['fecha_registro']).dt.date
-        df['id_amigable'] = range(len(df), 0, -1)
-        # ID Amigable primero a la izquierda
-        cols = ['id_amigable'] + [c for c in df.columns if c not in ['id_amigable', 'id']]
-        df = df[cols]
+    df_raw = pd.DataFrame(res.data)
+    
+    if not df_raw.empty:
+        # 6.1 PROCESAMIENTO DE COLUMNAS
+        df_raw['fecha_registro'] = pd.to_datetime(df_raw['fecha_registro']).dt.date
+        df_raw['id_amigable'] = range(len(df_raw), 0, -1)
+        
+        # DEFINIMOS EL ORDEN VISUAL (ID AMIGABLE PRIMERO A LA IZQUIERDA)
+        # Excluimos 'id' (técnico) y 'alerta_enviado' (el que no quieres ver)
+        columnas_ordenadas = [
+            'id_amigable', 'fecha_registro', 'rma_number', 'n_ticket', 
+            'empresa', 'modelo', 'serial_number', 'informacion', 'comentarios'
+        ]
+        
+        # Solo tomamos las columnas que existen en el orden que queremos
+        df = df_raw[[c for c in columnas_ordenadas if c in df_raw.columns]].copy()
+        # Añadimos el 'id' oculto para poder hacer updates en la DB
+        df['id_db'] = df_raw['id'] 
+        
         if st.session_state['rol'] == 'admin':
             df.insert(0, "Seleccionar", False)
 except: df = pd.DataFrame()
@@ -156,81 +159,70 @@ if not df.empty:
     m1, m2, m3 = st.columns(3)
     m1.metric("Equipos Totales", len(df))
     m2.metric("En Reparación", len(df[df['informacion'] == 'En proceso']))
-    m3.metric("Completados", len(df[df['informacion'] == 'FINALIZADO']))
+    m3.metric("Finalizados", len(df[df['informacion'] == 'FINALIZADO']))
 
-    # BUSCADOR Y EXCEL ALINEADOS
     c_search, c_excel = st.columns([3, 1])
     with c_search:
-        busq = st.text_input("Buscador", placeholder="🔍 Filtrar registros...", label_visibility="collapsed")
+        busq = st.text_input("Buscador", placeholder="🔍 Filtrar...", label_visibility="collapsed")
     with c_excel:
-        st.download_button("📥 Exportar a Excel", preparar_excel(df), "RMA_Report.xlsx", use_container_width=True)
+        st.download_button("📥 Reporte Excel Pro", preparar_excel(df), "RMA_Report.xlsx", use_container_width=True)
 
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
-    # --- TABLA CON NOMBRES DE COLUMNA BUENOS ---
-    st.markdown("### 📋 Listado General")
+    # --- TABLA INTERACTIVA ---
     es_admin = st.session_state['rol'] == 'admin'
-    
-    config_tabla = {
-        "Seleccionar": st.column_config.CheckboxColumn("🗑️"),
+    config_visual = {
+        "id_db": None, # OCULTAMOS EL ID REAL DE LA DB
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
         "fecha_registro": st.column_config.DateColumn("Fecha Ingreso", disabled=True),
         "rma_number": "Número RMA",
         "n_ticket": "Ticket",
-        "empresa": "Empresa",
+        "empresa": "Empresa / Cliente",
         "modelo": "Modelo",
         "serial_number": "S/N",
         "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
         "comentarios": "Comentarios"
     }
 
+    st.markdown("### 📋 Registros Activos")
     df_editado = st.data_editor(
         df_f, 
-        column_config=config_tabla, 
+        column_config=config_visual, 
         use_container_width=True, 
         hide_index=True, 
         disabled=not es_admin
     )
 
     if es_admin:
-        col_s, col_b, _ = st.columns([1.2, 1.2, 3])
+        col_s, col_b, _ = st.columns([1, 1, 2])
         if col_s.button("💾 GUARDAR CAMBIOS"):
             for _, row in df_editado.iterrows():
-                upd = {
-                    "rma_number": row['rma_number'], 
-                    "informacion": row['informacion'], 
-                    "comentarios": row['comentarios']
-                }
-                supabase.table("inventario_rma").update(upd).eq("id", row['id']).execute()
+                upd = {"rma_number": row['rma_number'], "informacion": row['informacion'], "comentarios": row['comentarios']}
+                supabase.table("inventario_rma").update(upd).eq("id", row['id_db']).execute()
             st.rerun()
         
         seleccionados = df_editado[df_editado.get('Seleccionar', False) == True]
-        if not seleccionados.empty and col_b.button(f"🗑️ BORRAR SELECCIÓN"):
-            for id_db in seleccionados['id'].tolist():
+        if not seleccionados.empty and col_b.button(f"🗑️ BORRAR"):
+            for id_db in seleccionados['id_db'].tolist():
                 supabase.table("inventario_rma").delete().eq("id", id_db).execute()
             st.rerun()
 
-    # --- MODIFICACIÓN MANUAL POR Nº ---
+    # --- MODIFICACIÓN MANUAL (USER Y ADMIN) ---
     st.markdown("---")
-    with st.expander("🛠️ Edición Manual (Buscar por Nº)"):
+    with st.expander("🛠️ Modificar por Nº de Registro"):
         col_id, col_form = st.columns([1, 3])
-        id_sel = col_id.selectbox("Seleccione el Nº:", ["---"] + sorted([str(i) for i in df['id_amigable']], reverse=True))
+        id_sel = col_id.selectbox("Seleccione Nº:", ["---"] + sorted([str(i) for i in df['id_amigable']], reverse=True))
         
         if id_sel != "---":
             item = df[df['id_amigable'] == int(id_sel)].iloc[0]
-            with col_form.form("manual_edit_form"):
-                st.write(f"Modificando Registro Nº {id_sel}")
-                m_rma = st.text_input("Número RMA", value=item['rma_number'])
+            with col_form.form("manual_edit"):
+                st.write(f"Editando Registro Nº {id_sel}")
+                m_rma = st.text_input("RMA", value=item['rma_number'])
                 m_emp = st.text_input("Empresa", value=item['empresa'])
                 m_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"], index=0 if item['informacion']=="En proceso" else 1)
                 m_com = st.text_area("Comentarios", value=str(item.get('comentarios', '')))
-                if st.form_submit_button("ACTUALIZAR REGISTRO"):
-                    supabase.table("inventario_rma").update({
-                        "rma_number": m_rma, 
-                        "empresa": m_emp, 
-                        "informacion": m_est, 
-                        "comentarios": m_com
-                    }).eq("id", item['id']).execute()
+                if st.form_submit_button("ACTUALIZAR"):
+                    supabase.table("inventario_rma").update({"rma_number":m_rma, "empresa":m_emp, "informacion":m_est, "comentarios":m_com}).eq("id", item['id_db']).execute()
                     st.rerun()
 else:
-    st.info("No hay datos en el sistema.")
+    st.info("Sin registros.")
