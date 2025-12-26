@@ -3,7 +3,7 @@ from supabase import create_client
 import pandas as pd
 import io
 
-# 1. CONFIGURACIÓN Y ESTILO
+# 1. CONFIGURACIÓN Y ESTILO (Manteniendo la estética oscura)
 st.set_page_config(page_title="RMA Hikvision", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -12,6 +12,8 @@ st.markdown("""
     .stApp { background-color: #0d1117; color: #e6edf3; }
     [data-testid="stSidebar"] { background-color: #010409; border-right: 1px solid #30363d; }
     .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
+    /* Estilo para los inputs de edición */
+    .stTextInput input { background-color: #161b22; color: white; border: 1px solid #30363d; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -47,7 +49,7 @@ def init_db():
 
 supabase = init_db()
 
-# 4. SIDEBAR (REGISTRO)
+# 4. SIDEBAR (REGISTRO NUEVO)
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.divider()
@@ -62,114 +64,110 @@ with st.sidebar:
         f_com = st.text_area("Comentarios")
         if st.form_submit_button("GUARDAR REGISTRO", use_container_width=True):
             if f_rma and f_emp:
-                try:
-                    supabase.table("inventario_rma").insert({
-                        "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
-                        "serial_number": f_sn, "informacion": f_est, "enviado": f_env, "comentarios": f_com
-                    }).execute()
-                    st.toast("✅ Registrado con éxito")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al guardar: {e}")
-            else:
-                st.warning("RMA y Empresa son obligatorios")
+                supabase.table("inventario_rma").insert({
+                    "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
+                    "serial_number": f_sn, "informacion": f_est, "enviado": f_env, "comentarios": f_com
+                }).execute()
+                st.toast("✅ Registrado con éxito")
+                st.rerun()
     
     if st.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state.update({'autenticado': False, 'rol': None})
         st.rerun()
 
 # 5. PANEL PRINCIPAL
-st.title("📦 Control de Inventario RMA")
+st.title("📦 Panel de Gestión de Inventario")
 
 try:
-    # Consulta de datos
+    # 5.1 Obtener datos
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
     df_raw = pd.DataFrame(res.data)
 
     if not df_raw.empty:
-        # Preparación de visualización con Emojis
+        # Preparar visualización
         df_view = df_raw.copy()
-        df_view['informacion'] = df_view['informacion'].apply(lambda x: f"🔴 {x}" if "proceso" in x else f"🟢 {x}")
-        df_view['enviado'] = df_view['enviado'].apply(lambda x: f"🔴 {x}" if x == "NO" else f"🟢 {x}")
         
-        # Columna de índice amigable
-        df_view['Nº'] = range(len(df_view), 0, -1)
+        # El buscador ahora es más potente (busca en IDs, Seriales, Nombres, etc.)
+        busq = st.text_input("🔍 Buscador inteligente (ID, RMA, Empresa, S/N...)", placeholder="Ej: 105 o HIK-V30...")
         
-        # Selección de columnas
-        cols_base = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'id']
-        
-        # Filtro de búsqueda
-        busq = st.text_input("🔍 Buscar por RMA, Empresa o Serial...", placeholder="Escribe para filtrar...")
         if busq:
             df_view = df_view[df_view.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)]
 
-        # Lógica de Admin (Edición)
+        # Aplicar Emojis visuales
+        df_view['informacion'] = df_view['informacion'].apply(lambda x: f"🔴 {x}" if "proceso" in str(x) else f"🟢 {x}")
+        df_view['enviado'] = df_view['enviado'].apply(lambda x: f"🔴 {x}" if x == "NO" else f"🟢 {x}")
+        
+        # 5.2 Lógica de Edición para ADMIN
         es_admin = st.session_state['rol'] == 'admin'
         if es_admin:
             df_view.insert(0, "Sel", False)
         
-        # Configuración de columnas para el editor
+        # CONFIGURACIÓN DE COLUMNAS (Aquí es donde ocurre la magia del cambio manual)
         config = {
-            "id": None, # Ocultar ID real de la DB
+            "id": None, # Sigue oculto el UUID largo
             "Sel": st.column_config.CheckboxColumn("🗑️"),
-            "Nº": st.column_config.TextColumn("Nº", disabled=True),
-            "fecha_registro": st.column_config.TextColumn("Fecha", disabled=True),
-            "informacion": st.column_config.SelectboxColumn("Estado", options=["🔴 En proceso", "🟢 FINALIZADO"]),
-            "enviado": st.column_config.SelectboxColumn("Enviado", options=["🔴 NO", "🟢 YES"]),
+            "fecha_registro": st.column_config.TextColumn("Fecha Registro", disabled=True),
+            "rma_number": st.column_config.TextColumn("RMA #", help="Haz doble clic para editar"),
+            "empresa": st.column_config.TextColumn("Empresa cliente"),
+            "modelo": st.column_config.TextColumn("Modelo Equipo"),
+            "serial_number": st.column_config.TextColumn("S/N (Serial)"),
+            "informacion": st.column_config.SelectboxColumn("Estado Actual", options=["🔴 En proceso", "🟢 FINALIZADO"]),
+            "enviado": st.column_config.SelectboxColumn("¿Ya se envió?", options=["🔴 NO", "🟢 YES"]),
+            "comentarios": st.column_config.TextColumn("Comentarios adicionales"),
         }
 
+        # Render de la tabla editable
         edited_df = st.data_editor(
             df_view, 
             column_config=config, 
             use_container_width=True, 
             hide_index=True, 
-            disabled=not es_admin,
-            key="main_editor"
+            disabled=not es_admin, # Solo Admin puede escribir
+            key="editor_maestro"
         )
 
-        # Botones de Acción para Admin
+        # 5.3 BOTONES DE ACCIÓN (Guardado de cambios manuales)
         if es_admin:
             c1, c2, c3 = st.columns([1, 1, 2])
             
-            if c1.button("💾 GUARDAR CAMBIOS", use_container_width=True):
-                with st.spinner("Actualizando..."):
+            if c1.button("💾 GUARDAR TODOS LOS CAMBIOS", type="primary", use_container_width=True):
+                with st.spinner("Sincronizando con base de datos..."):
                     for _, row in edited_df.iterrows():
-                        # Limpieza estricta de emojis antes de subir
-                        info_clean = row['informacion'].replace("🔴 ", "").replace("🟢 ", "")
-                        env_clean = row['enviado'].replace("🔴 ", "").replace("🟢 ", "")
+                        # Limpiar emojis antes de actualizar
+                        info_db = str(row['informacion']).replace("🔴 ", "").replace("🟢 ", "")
+                        env_db = str(row['enviado']).replace("🔴 ", "").replace("🟢 ", "")
                         
+                        # ACTUALIZACIÓN MANUAL DE TODOS LOS CAMPOS
                         supabase.table("inventario_rma").update({
-                            "informacion": info_clean, 
-                            "enviado": env_clean,
-                            "comentarios": row['comentarios'],
-                            "rma_number": row['rma_number']
+                            "rma_number": row['rma_number'],
+                            "empresa": row['empresa'],
+                            "modelo": row['modelo'],
+                            "serial_number": row['serial_number'],
+                            "informacion": info_db,
+                            "enviado": env_db,
+                            "comentarios": row['comentarios']
                         }).eq("id", row['id']).execute()
-                st.success("Base de datos actualizada")
+                
+                st.success("✅ Cambios manuales aplicados con éxito")
                 st.rerun()
             
-            if c2.button("🗑️ ELIMINAR", use_container_width=True):
-                seleccionados = edited_df[edited_df["Sel"] == True]
-                if not seleccionados.empty:
-                    for id_db in seleccionados['id'].tolist():
+            if c2.button("🗑️ ELIMINAR SELECCIÓN", use_container_width=True):
+                sel = edited_df[edited_df["Sel"] == True]
+                if not sel.empty:
+                    for id_db in sel['id'].tolist():
                         supabase.table("inventario_rma").delete().eq("id", id_db).execute()
                     st.rerun()
                 else:
-                    st.warning("Selecciona filas primero")
+                    st.warning("Selecciona primero el checkbox 🗑️")
 
-            # Botón de exportar a Excel (Para administración)
+            # Excel (Exportación)
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                df_raw.to_excel(writer, index=False, sheet_name='RMA_Report')
-            
-            c3.download_button(
-                label="📥 DESCARGAR EXCEL",
-                data=buffer.getvalue(),
-                file_name="reporte_rma_hikvision.xlsx",
-                mime="application/vnd.ms-excel"
-            )
+                df_raw.to_excel(writer, index=False)
+            c3.download_button("📥 DESCARGAR REPORTE", data=buffer.getvalue(), file_name="inventario_rma.xlsx", mime="application/vnd.ms-excel", use_container_width=True)
 
     else:
-        st.info("No hay registros en la base de datos.")
+        st.info("No hay datos que mostrar. Registra un RMA en la barra lateral.")
 
 except Exception as e:
-    st.error(f"Error de conexión o datos: {e}")
+    st.error(f"Hubo un error al procesar los datos: {e}")
