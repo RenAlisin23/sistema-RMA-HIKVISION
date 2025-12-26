@@ -7,23 +7,33 @@ import io
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="Gestión RMA Hikvision", layout="wide")
 
-# 2. CSS PROFESIONAL
+# 2. CSS PARA OCULTAR TODO EL "CHROME" DE STREAMLIT
 st.markdown("""
     <style>
-    header { visibility: hidden; }
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stDecoration"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stManageAppButton"] { display: none !important; }
-    .stDeployButton { display: none !important; }
+    /* Ocultar Header, Footer y Menús */
+    header, footer, .stDeployButton, #MainMenu {visibility: hidden; display: none !important;}
+    
+    /* Ocultar barra de herramientas y decoración superior */
+    [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] {
+        display: none !important;
+        height: 0;
+    }
 
+    /* Ocultar el botón "Manage App" (específicamente para cuando estás logueado) */
+    [data-testid="stStatusWidget"] { display: none !important; }
+    button[title="View source"], .viewerBadge_container__1QSob { display: none !important; }
+
+    /* Estética General Dark Mode */
     .stApp { background-color: #0d1117; color: #c9d1d9; }
     h1, h2, h3, p, label { color: #e6edf3 !important; font-family: 'Inter', sans-serif; }
     
-    [data-testid="stSidebar"] { background-color: #010409; border-right: 2px solid #eb1c24; }
+    /* Sidebar Profesional */
+    [data-testid="stSidebar"] { 
+        background-color: #010409; 
+        border-right: 2px solid #eb1c24; 
+    }
     
+    /* Métricas */
     [data-testid="stMetric"] {
         background-color: #161b22;
         padding: 20px;
@@ -31,6 +41,7 @@ st.markdown("""
         border: 1px solid #30363d;
     }
 
+    /* Botones Hikvision */
     .stButton>button {
         background: #8b0000;
         color: white !important;
@@ -40,10 +51,16 @@ st.markdown("""
         width: 100%;
     }
     .stButton>button:hover { background: #eb1c24; }
+    
+    /* Eliminar el espacio en blanco superior */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 0rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. CONEXIÓN Y LOGIN
+# 3. CONEXIÓN Y LOGIN (Sin cambios)
 if 'autenticado' not in st.session_state:
     st.session_state.update({'autenticado': False, 'rol': None})
 
@@ -74,11 +91,9 @@ def init_db():
 
 supabase = init_db()
 
-# --- 4. EXCEL PROFESIONAL (Nº A LA IZQUIERDA Y BIEN FORMATEADO) ---
+# --- 4. EXCEL PROFESIONAL (Nº A LA IZQUIERDA) ---
 def preparar_excel(df_input):
     df_export = df_input.copy()
-    
-    # Mapeo de nombres para el reporte final
     columnas_reporte = {
         "id_amigable": "Nº",
         "fecha_registro": "Fecha de Ingreso",
@@ -91,34 +106,23 @@ def preparar_excel(df_input):
         "informacion": "Estado",
         "comentarios": "Comentarios"
     }
-    
-    # Seleccionar solo las columnas necesarias en el orden correcto
     cols_a_incluir = [c for c in columnas_reporte.keys() if c in df_export.columns]
     df_export = df_export[cols_a_incluir].rename(columns=columnas_reporte)
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
-        
         workbook  = writer.book
         worksheet = writer.sheets['Reporte_RMA']
-
-        # Estilos: Encabezado Rojo Hikvision y bordes
-        header_format = workbook.add_format({
-            'bold': True, 'font_color': 'white', 'fg_color': '#eb1c24',
-            'border': 1, 'align': 'center', 'valign': 'middle'
-        })
+        header_format = workbook.add_format({'bold': True, 'font_color': 'white', 'fg_color': '#eb1c24', 'border': 1, 'align': 'center'})
         cell_format = workbook.add_format({'border': 1, 'valign': 'middle'})
-        
-        # Ajustar ancho de columnas automáticamente
         for i, col in enumerate(df_export.columns):
             max_len = max(df_export[col].astype(str).map(len).max(), len(col)) + 4
             worksheet.set_column(i, i, max_len, cell_format)
             worksheet.write(0, i, col, header_format)
-
     return output.getvalue()
 
-# 5. SIDEBAR (REGISTRO)
+# 5. SIDEBAR
 with st.sidebar:
     st.image("https://revistadigitalsecurity.com.br/wp-content/uploads/2019/10/New-Hikvision-logo-1024x724-1170x827.jpg", width=150)
     st.markdown("### ➕ Registrar RMA")
@@ -129,26 +133,16 @@ with st.sidebar:
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
-        f_desc = st.text_area("Ingrese partes del modelo aplicadas")
+        f_desc = st.text_area("Partes del modelo")
         f_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"])
         f_com = st.text_area("Comentarios")
-        
         if st.form_submit_button("GUARDAR"):
             if f_rma and f_emp:
-                data = {
-                    "rma_number": f_rma, 
-                    "n_ticket": f_ticket,
-                    "n_rq": f_rq,
-                    "empresa": f_emp, 
-                    "modelo": f_mod, 
-                    "serial_number": f_sn, 
-                    "descripcion": f_desc,
-                    "informacion": f_est, 
-                    "comentarios": f_com, 
-                    "enviado": "NO", 
-                    "fedex_number": ""
-                }
-                supabase.table("inventario_rma").insert(data).execute()
+                supabase.table("inventario_rma").insert({
+                    "rma_number": f_rma, "n_ticket": f_ticket, "n_rq": f_rq, "empresa": f_emp, 
+                    "modelo": f_mod, "serial_number": f_sn, "descripcion": f_desc,
+                    "informacion": f_est, "comentarios": f_com, "enviado": "NO"
+                }).execute()
                 st.success("✅ Guardado")
                 st.rerun()
     if st.button("🚪 Salir"):
@@ -160,15 +154,19 @@ st.title("📦 Control de Inventario")
 
 try:
     res = supabase.table("inventario_rma").select("*").order("fecha_registro", desc=True).execute()
-    df = pd.DataFrame(res.data)
-    if not df.empty:
-        df['fecha_registro'] = pd.to_datetime(df['fecha_registro']).dt.date
-        df['id_amigable'] = range(len(df), 0, -1)
-        # ID Amigable primero a la izquierda
-        cols = ['id_amigable'] + [c for c in df.columns if c not in ['id_amigable', 'id']]
-        df = df[cols]
+    df_raw = pd.DataFrame(res.data)
+    if not df_raw.empty:
+        df_raw['fecha_registro'] = pd.to_datetime(df_raw['fecha_registro']).dt.date
+        df_raw['id_amigable'] = range(len(df_raw), 0, -1)
+        
+        # DEFINIR ORDEN DE COLUMNAS (Nº primero)
+        columnas_orden = ['id_amigable', 'fecha_registro', 'rma_number', 'n_rq', 'n_ticket', 'empresa', 'modelo', 'serial_number', 'informacion', 'comentarios']
+        df = df_raw[[c for c in columnas_orden if c in df_raw.columns]]
+        df.insert(len(df.columns), "id_db", df_raw['id']) # Guardar ID oculto al final
+        
         if st.session_state['rol'] == 'admin':
             df.insert(0, "Seleccionar", False)
+    else: df = pd.DataFrame()
 except: df = pd.DataFrame()
 
 if not df.empty:
@@ -177,7 +175,6 @@ if not df.empty:
     m2.metric("En Reparación", len(df[df['informacion'] == 'En proceso']))
     m3.metric("Completados", len(df[df['informacion'] == 'FINALIZADO']))
 
-    # BUSCADOR Y EXCEL ALINEADOS
     c_search, c_excel = st.columns([3, 1])
     with c_search:
         busq = st.text_input("Buscador", placeholder="🔍 Filtrar registros...", label_visibility="collapsed")
@@ -186,71 +183,50 @@ if not df.empty:
 
     df_f = df[df.apply(lambda r: r.astype(str).str.contains(busq, case=False).any(), axis=1)] if busq else df
 
-    # --- TABLA CON NOMBRES DE COLUMNA BUENOS ---
+    # TABLA
     st.markdown("### 📋 Listado General")
     es_admin = st.session_state['rol'] == 'admin'
-    
     config_tabla = {
+        "id_db": None, # Ocultamos el ID real de la base de datos
         "Seleccionar": st.column_config.CheckboxColumn("🗑️"),
         "id_amigable": st.column_config.TextColumn("Nº", disabled=True),
         "fecha_registro": st.column_config.DateColumn("Fecha Ingreso", disabled=True),
         "rma_number": "Número RMA",
         "n_rq": "RQ",
         "n_ticket": "Ticket",
-        "empresa": "Empresa",
-        "modelo": "Modelo",
-        "serial_number": "S/N",
         "informacion": st.column_config.SelectboxColumn("Estado", options=["En proceso", "FINALIZADO"]),
-        "comentarios": "Comentarios"
     }
 
-    df_editado = st.data_editor(
-        df_f, 
-        column_config=config_tabla, 
-        use_container_width=True, 
-        hide_index=True, 
-        disabled=not es_admin
-    )
+    df_editado = st.data_editor(df_f, column_config=config_tabla, use_container_width=True, hide_index=True, disabled=not es_admin)
 
     if es_admin:
         col_s, col_b, _ = st.columns([1.2, 1.2, 3])
         if col_s.button("💾 GUARDAR CAMBIOS"):
             for _, row in df_editado.iterrows():
-                upd = {
-                    "rma_number": row['rma_number'], 
-                    "informacion": row['informacion'], 
-                    "comentarios": row['comentarios']
-                }
-                supabase.table("inventario_rma").update(upd).eq("id", row['id']).execute()
+                upd = {"rma_number": row['rma_number'], "informacion": row['informacion'], "comentarios": row['comentarios']}
+                supabase.table("inventario_rma").update(upd).eq("id", row['id_db']).execute()
             st.rerun()
         
         seleccionados = df_editado[df_editado.get('Seleccionar', False) == True]
         if not seleccionados.empty and col_b.button(f"🗑️ BORRAR SELECCIÓN"):
-            for id_db in seleccionados['id'].tolist():
+            for id_db in seleccionados['id_db'].tolist():
                 supabase.table("inventario_rma").delete().eq("id", id_db).execute()
             st.rerun()
 
-    # --- MODIFICACIÓN MANUAL POR Nº ---
+    # EDICIÓN MANUAL
     st.markdown("---")
     with st.expander("🛠️ Edición Manual (Buscar por Nº)"):
         col_id, col_form = st.columns([1, 3])
         id_sel = col_id.selectbox("Seleccione el Nº:", ["---"] + sorted([str(i) for i in df['id_amigable']], reverse=True))
-        
         if id_sel != "---":
             item = df[df['id_amigable'] == int(id_sel)].iloc[0]
             with col_form.form("manual_edit_form"):
-                st.write(f"Modificando Registro Nº {id_sel}")
                 m_rma = st.text_input("Número RMA", value=item['rma_number'])
                 m_emp = st.text_input("Empresa", value=item['empresa'])
                 m_est = st.selectbox("Estado", ["En proceso", "FINALIZADO"], index=0 if item['informacion']=="En proceso" else 1)
                 m_com = st.text_area("Comentarios", value=str(item.get('comentarios', '')))
                 if st.form_submit_button("ACTUALIZAR REGISTRO"):
-                    supabase.table("inventario_rma").update({
-                        "rma_number": m_rma, 
-                        "empresa": m_emp, 
-                        "informacion": m_est, 
-                        "comentarios": m_com
-                    }).eq("id", item['id']).execute()
+                    supabase.table("inventario_rma").update({"rma_number": m_rma, "empresa": m_emp, "informacion": m_est, "comentarios": m_com}).eq("id", item['id_db']).execute()
                     st.rerun()
 else:
-    st.info("No hay datos en el sistema.")
+    st.info("No hay datos.")
