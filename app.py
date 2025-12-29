@@ -63,6 +63,8 @@ with st.sidebar:
     with st.form("reg_sidebar", clear_on_submit=True):
         st.markdown("### ➕ Nuevo RMA")
         f_rma = st.text_input("Número RMA")
+        f_rmq = st.text_input("Número RQ")
+        f_tic = st.text_input("Número de ticket")
         f_emp = st.text_input("Empresa")
         f_mod = st.text_input("Modelo")
         f_sn  = st.text_input("S/N")
@@ -77,14 +79,14 @@ with st.sidebar:
                     supabase.table("inventario_rma").insert({
                         "rma_number": f_rma, "empresa": f_emp, "modelo": f_mod, 
                         "serial_number": f_sn, "informacion": f_est, "enviado": f_env, 
-                        "comentarios": f_com, "descripcion": f_des
+                        "comentarios": f_com, "descripcion": f_des , "n_rq":f_rmq , "n_ticket": f_tic
                     }).execute()
                     st.toast("✅ Registrado con éxito")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error al guardar: {e}")
             else:
-                st.warning("RMA y Empresa son obligatorios")
+                st.warning("Todos los datos son obligatorios")
     
     if st.button("Cerrar Sesión", use_container_width=True):
         st.session_state.update({'autenticado': False, 'rol': None})
@@ -101,7 +103,7 @@ try:
         df_view = df_raw.copy()
         df_view['Nº'] = range(len(df_view), 0, -1)
         
-        cols = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'fedex_number', 'descripcion', 'id']
+        cols = ['Nº', 'fecha_registro', 'rma_number', 'empresa', 'n_ticket', 'modelo', 'serial_number', 'informacion', 'enviado', 'comentarios', 'fedex_number', 'descripcion', 'id']
         df_view = df_view[cols]
 
         df_view['informacion_vis'] = df_view['informacion'].apply(lambda x: f"🔴 {x}" if "proceso" in str(x).lower() else f"🟢 {x}")
@@ -120,12 +122,13 @@ try:
             "Nº": st.column_config.NumberColumn("🆔 ID", format="%d"),
             "fecha_registro": st.column_config.TextColumn("📅 FECHA", disabled=True),
             "rma_number": st.column_config.TextColumn("📄 RMA"),
+            "n_ticket": st.colum_config.TextColumn( "📝 Nº TICKET"),
             "empresa": st.column_config.TextColumn("🏢 EMPRESA"),
             "modelo": st.column_config.TextColumn("📦 MODELO"),
             "serial_number": st.column_config.TextColumn("🔢 SERIAL"),
             "informacion_vis": st.column_config.SelectboxColumn("🛠️ ESTADO", options=["🔴 En proceso", "🟢 FINALIZADO"]),
             "enviado_vis": st.column_config.SelectboxColumn("🚚 ENVÍO", options=["🔴 NO", "🟢 YES"]),
-            "comentarios": st.column_config.TextColumn("📝 COMENT."),
+            "comentarios": st.column_config.TextColumn("📝 COMENTARIOS."),
             "fedex_number": st.column_config.TextColumn("🛣️ FEDEX"),
             "descripcion": st.column_config.TextColumn("🔍 PARTES PEDIDAS"),
         }
@@ -151,11 +154,11 @@ try:
                     supabase.table("inventario_rma").delete().eq("id", id_db).execute()
                 st.rerun()
 
-            # --- LÓGICA DE EXCEL "BIEN HECHECITO" ---
+            # --- LÓGICA DE EXCEL --------
             buffer = io.BytesIO()
             df_export = df_raw.copy()
-            df_export = df_export[['fecha_registro', 'rma_number', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'fedex_number', 'descripcion', 'comentarios']]
-            df_export.columns = ['FECHA INGRESO', 'Nº RMA', 'EMPRESA/CLIENTE', 'MODELO', 'SERIAL NUMBER', 'ESTADO ACTUAL', 'ENVIADO', 'GUÍA FEDEX', 'PARTES PEDIDAS', 'COMENTARIOS']
+            df_export = df_export[['fecha_registro', 'rma_number', 'n_ticket', 'empresa', 'modelo', 'serial_number', 'informacion', 'enviado', 'fedex_number', 'descripcion', 'comentarios']]
+            df_export.columns = ['FECHA INGRESO', 'Nº RMA', 'Nº TICKET', 'EMPRESA/CLIENTE', 'MODELO', 'SERIAL NUMBER', 'ESTADO ACTUAL', 'ENVIADO', 'GUÍA FEDEX', 'PARTES PEDIDAS', 'COMENTARIOS']
             
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
