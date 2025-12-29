@@ -3,19 +3,15 @@ from supabase import create_client
 import pandas as pd
 import io
 
-# 1. CONFIGURACIÓN Y ESTILO 
+# 1. CONFIGURACIÓN Y ESTILO
 st.set_page_config(page_title="RMA Hikvision", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    /* Escondemos el botón de 'Deploy' y el menú de tres puntos, pero NO el header completo */
     .stDeployButton { display: none !important; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
-    
-    /* Mantenemos el header pero transparente para que no estorbe, así la flecha sigue ahí */
     header { background-color: rgba(0,0,0,0) !important; }
-
     .stApp { background-color: #0d1117; color: #e6edf3; }
     [data-testid="stSidebar"] { background-color: #010409; border-right: 1px solid #30363d; }
     .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
@@ -117,12 +113,13 @@ try:
         if es_admin:
             df_view.insert(0, "Sel", False)
         
+        # --- CONFIGURACIÓN DE COLUMNAS (CORREGIDO typo en n_ticket) ---
         config = {
             "id": None, "Sel": st.column_config.CheckboxColumn("🗑️"),
             "Nº": st.column_config.NumberColumn("🆔 ID", format="%d"),
             "fecha_registro": st.column_config.TextColumn("📅 FECHA", disabled=True),
             "rma_number": st.column_config.TextColumn("📄 RMA"),
-            "n_ticket": st.column_config.TextColumn( "📝 Nº TICKET"),
+            "n_ticket": st.column_config.TextColumn("📝 Nº TICKET"), # Corregido: column_config (con n)
             "empresa": st.column_config.TextColumn("🏢 EMPRESA"),
             "modelo": st.column_config.TextColumn("📦 MODELO"),
             "serial_number": st.column_config.TextColumn("🔢 SERIAL"),
@@ -145,7 +142,7 @@ try:
                     supabase.table("inventario_rma").update({
                         "informacion": info_c, "enviado": env_c, "comentarios": row['comentarios'], 
                         "rma_number": row['rma_number'], "fedex_number": row.get('fedex_number',""), 
-                        "descripcion": row.get('descripcion',"")
+                        "descripcion": row.get('descripcion',""), "n_ticket": row['n_ticket']
                     }).eq("id", row['id']).execute()
                 st.rerun()
 
@@ -164,21 +161,15 @@ try:
                 df_export.to_excel(writer, index=False, sheet_name='Reporte_RMA')
                 workbook  = writer.book
                 worksheet = writer.sheets['Reporte_RMA']
-
-                # Formatos personalizados
                 header_fmt = workbook.add_format({'bold': True, 'bg_color': '#30363d', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
                 cell_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True})
-
-                # Aplicar anchos de columna (Espaciado profesional)
-                worksheet.set_column('A:A', 20, cell_fmt) # Fecha
-                worksheet.set_column('B:B', 15, cell_fmt) # RMA
-                worksheet.set_column('C:C', 30, cell_fmt) # Empresa
-                worksheet.set_column('D:E', 25, cell_fmt) # Modelo y Serial
-                worksheet.set_column('F:G', 15, cell_fmt) # Estado y Enviado
-                worksheet.set_column('H:H', 20, cell_fmt) # FedEx
-                worksheet.set_column('I:J', 45, cell_fmt) # Partes y Comentarios (más ancho)
-
-                # Aplicar formato al encabezado
+                worksheet.set_column('A:A', 20, cell_fmt)
+                worksheet.set_column('B:B', 15, cell_fmt)
+                worksheet.set_column('C:C', 30, cell_fmt)
+                worksheet.set_column('D:E', 25, cell_fmt)
+                worksheet.set_column('F:G', 15, cell_fmt)
+                worksheet.set_column('H:H', 20, cell_fmt)
+                worksheet.set_column('I:J', 45, cell_fmt)
                 for col_num, value in enumerate(df_export.columns.values):
                     worksheet.write(0, col_num, value, header_fmt)
 
