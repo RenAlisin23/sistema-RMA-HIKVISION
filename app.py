@@ -3,7 +3,7 @@ from supabase import create_client
 import pandas as pd
 import io
 
-# 1. CONFIGURACIÓN Y ESTILO (CORREGIDO PARA NO PERDER LA FLECHA DEL SIDEBAR)
+# 1. CONFIGURACIÓN Y ESTILO 
 st.set_page_config(page_title="RMA Hikvision", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -122,7 +122,7 @@ try:
             "Nº": st.column_config.NumberColumn("🆔 ID", format="%d"),
             "fecha_registro": st.column_config.TextColumn("📅 FECHA", disabled=True),
             "rma_number": st.column_config.TextColumn("📄 RMA"),
-            "n_ticket": st.colum_config.TextColumn( "📝 Nº TICKET"),
+            "n_ticket": st.column_config.TextColumn( "📝 Nº TICKET"),
             "empresa": st.column_config.TextColumn("🏢 EMPRESA"),
             "modelo": st.column_config.TextColumn("📦 MODELO"),
             "serial_number": st.column_config.TextColumn("🔢 SERIAL"),
